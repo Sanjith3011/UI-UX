@@ -1,0 +1,198 @@
+.public-project-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.public-back-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 20px;
+}
+
+.public-project-page .back-link,
+.public-profile .back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.public-project-page .back-link:hover,
+.public-profile .back-link:hover {
+  color: var(--primary);
+}
+
+.public-project-page .back-link-primary {
+  color: var(--primary);
+}
+
+.public-project-header {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.public-project-header h1 {
+  margin-bottom: 8px;
+}
+
+.public-project-meta {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.public-project-about {
+  margin-bottom: 16px;
+}
+
+.public-project-about h3 {
+  font-size: 0.95rem;
+  color: var(--primary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.public-project-description {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--text-main);
+  white-space: pre-wrap;
+  margin-bottom: 0;
+}
+
+.section-title {
+  margin-bottom: 16px;
+}
+
+.score-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.score-pill {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-weight: 600;
+}
+
+.score-pill.ui {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.score-pill.ux {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.public-designs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.public-design-card img {
+  width: 100%;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.public-design-card {
+  padding: 16px;
+}
+
+.public-design-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 100px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.like-btn.liked {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.comments-section {
+  padding: 24px;
+}
+
+.comments-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.public-comment {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 0;
+}
+
+.public-comment strong {
+  color: var(--primary);
+  margin-right: 8px;
+}
+
+.comment-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.public-reply {
+  margin-left: 16px;
+  margin-top: 10px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.comment-form {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-prompt {
+  margin-top: 16px;
+  color: var(--text-muted);
+}
+
+.login-prompt a {
+  color: var(--primary);
+}
+
+.empty-note {
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.owner-badge {
+  font-size: 0.7rem;
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--primary);
+  padding: 2px 8px;
+  border-radius: 100px;
+  margin-left: 6px;
+}

@@ -1,0 +1,157 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Project Report - {{ project.title }}</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #333333;
+            margin: 40px;
+            line-height: 1.6;
+        }
+        .header {
+            border-bottom: 2px solid #2C3E50;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        .brand {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2C3E50;
+            margin-bottom: 5px;
+        }
+        .report-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7F8C8D;
+            margin-bottom: 15px;
+        }
+        .project-meta {
+            font-size: 13px;
+            color: #555;
+            margin-top: 8px;
+        }
+        .section-title {
+            font-size: 16px;
+            color: #2C3E50;
+            border-bottom: 1px solid #ECF0F1;
+            padding-bottom: 4px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .abstract-box {
+            background-color: #F8F9FA;
+            border-left: 4px solid #3498DB;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-style: italic;
+            color: #4F5D73;
+        }
+        .description-text {
+            font-size: 13px;
+            color: #2C3E50;
+        }
+        .tech-list {
+            margin-top: 8px;
+        }
+        .tech-tag {
+            display: inline-block;
+            background-color: #ECF0F1;
+            color: #2C3E50;
+            padding: 3px 8px;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .score-panel {
+            background-color: #F4F6F7;
+            border: 1px solid #BDC3C7;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 25px;
+            width: 280px;
+        }
+        .score-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+        }
+        .score-table td {
+            padding: 4px 8px;
+            font-size: 13px;
+        }
+        .score-label {
+            color: #2C3E50;
+        }
+        .score-val {
+            font-weight: bold;
+            color: #27AE60;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="brand">UI/UX Feedback Analyzer</div>
+        <div class="report-title">Project Summary Report</div>
+        <h1 style="margin: 5px 0; color: #2C3E50; font-size: 24px;">{{ project.title }}</h1>
+        <div class="project-meta">
+            <strong>Owner:</strong> {{ project.user }} &nbsp;|&nbsp; 
+            <strong>Created:</strong> {{ project.created_at|date:"F d, Y" }}
+        </div>
+    </div>
+
+    {% if project_feedback %}
+        {% if project_feedback.report_details %}
+            <div class="section-title">Abstract & Summary</div>
+            <div class="abstract-box">
+                {{ project_feedback.report_details.abstract }}
+            </div>
+
+            <div class="section-title">Project Detailed Description</div>
+            <div class="description-text">
+                {{ project_feedback.report_details.detailed_description|linebreaksbr }}
+            </div>
+
+            <div class="section-title">Languages & Frameworks Used</div>
+            <div class="tech-list">
+                {% if project_feedback.report_details.languages_frameworks %}
+                    {% for tech in project_feedback.report_details.languages_frameworks %}
+                        <span class="tech-tag">{{ tech }}</span>
+                    {% endfor %}
+                {% else %}
+                    <span style="color: #7F8C8D; font-style: italic;">No specific languages or frameworks detected.</span>
+                {% endif %}
+            </div>
+        {% else %}
+            <!-- Fallback if old feedback structure is found -->
+            <div class="section-title">Project Description</div>
+            <div class="description-text">
+                {{ project.description|default:"No description provided."|linebreaksbr }}
+            </div>
+        {% endif %}
+
+        <div class="score-panel">
+            <h3 style="margin-top: 0; margin-bottom: 5px; color: #2C3E50; font-size: 14px; border-bottom: 1px solid #BDC3C7; padding-bottom: 4px;">UI/UX Scores Summary</h3>
+            <table class="score-table">
+                <tr>
+                    <td class="score-label">UI Presentation Score:</td>
+                    <td class="score-val">{{ project_feedback.ui_score }}/10</td>
+                </tr>
+                <tr>
+                    <td class="score-label">UX Usability Score:</td>
+                    <td class="score-val">{{ project_feedback.ux_score }}/10</td>
+                </tr>
+            </table>
+        </div>
+    {% else %}
+        <p style="color: #7F8C8D; font-style: italic;">No feedback or report details available yet. Please upload a project archive to analyze.</p>
+    {% endif %}
+</body>
+</html>

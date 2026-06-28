@@ -1,0 +1,33 @@
+.feedback-content {
+  color: var(--text-main);
+  line-height: 1.6;
+  transition: max-height 0.3s ease;
+}
+
+/* Collapsed state: show limited height with fade */
+.feedback-content.collapsed {
+  max-height: 12rem; /* approx 6 lines */
+  overflow: hidden;
+  position: relative;
+}
+
+.feedback-content.collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3rem;
+  background: linear-gradient(to bottom, transparent, var(--surface-color));
+}
+
+/* Copy button styling (unchanged) */
+.copy-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-top: 8px;
+}

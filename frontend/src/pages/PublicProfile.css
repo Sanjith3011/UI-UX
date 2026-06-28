@@ -1,0 +1,88 @@
+.public-profile {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.public-back-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 20px;
+}
+
+.profile-header {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 28px;
+  margin-bottom: 28px;
+}
+
+.profile-avatar-icon {
+  color: var(--primary);
+}
+
+.profile-stat {
+  font-size: 0.85rem;
+  color: var(--primary);
+}
+
+.section-title {
+  margin-bottom: 16px;
+}
+
+.public-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.public-project-card {
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s;
+}
+
+.public-project-card:hover {
+  border-color: var(--primary);
+}
+
+.public-project-card h3 {
+  margin-bottom: 8px;
+}
+
+.public-project-card p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.score-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.score-pill {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-weight: 600;
+}
+
+.score-pill.ui {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.score-pill.ux {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.design-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

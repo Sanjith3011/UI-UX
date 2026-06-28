@@ -1,0 +1,98 @@
+.navbar {
+    position: sticky;
+    top: 16px;
+    z-index: 50;
+    max-width: 1200px;
+    margin: 16px auto;
+    padding: 16px 24px;
+    border-radius: 16px;
+}
+
+.navbar-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+}
+
+.navbar-icon {
+    color: var(--primary);
+}
+
+.navbar-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.navbar-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.navbar-link:hover {
+    color: var(--text-main);
+}
+
+.navbar-privacy-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+}
+
+.navbar-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.navbar-delete-btn,
+.navbar-logout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+}
+
+.navbar-delete-btn {
+    color: var(--error, #ef4444);
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.navbar-delete-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.navbar-badge {
+    background-color: var(--error);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+    line-height: 1;
+}

@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database
+db.sqlite3
+
+# Django media and local settings
+backend/media/
+.env
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+
+# Temporary/archive files
+*.zip
+*.rar
+*.tar.gz
+temp_*.zip
+clean_*.zip
+*.clean.zip
