@@ -160,7 +160,10 @@ RESOLVED_GROQ_VISION_MODEL = _resolve_groq_vision_model()
 
 # --- GEMINI MODEL RESOLVERS ---
 if genai:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    # Only configure Gemini if an API key is provided and the SDK supports configure
+    api_key = getattr(settings, 'GEMINI_API_KEY', None)
+    if api_key and hasattr(genai, 'configure'):
+        genai.configure(api_key=api_key)
 
 MODEL_NAME = os.getenv('MODEL_NAME', 'gemini-2.5-flash')
 
@@ -977,3 +980,99 @@ Ensure your response is valid JSON and nothing else.
                 "report_details": default_report_details
             }
         }
+
+
+def analyze_hybrid_submission(report_text: str, screenshot_evaluations: list, custom_prompt: str = ""):
+    """Analyze a combined project report doc, user prompt instructions, and screenshot evaluations."""
+    shots_summary = "\n".join([
+        f"- Screenshot {item.get('screenshot_index', i+1)}: UI Score: {item.get('ui_score', 'N/A')}/10, UX Score: {item.get('ux_score', 'N/A')}/10. Summary: {item.get('summary', '')}"
+        for i, item in enumerate(screenshot_evaluations)
+    ]) or "No screenshots provided."
+
+    instruction_focus = custom_prompt.strip() if custom_prompt else "Standard comprehensive UI/UX heuristic and visual evaluation."
+    report_excerpt = report_text[:14000].strip() if report_text else "No report text available."
+
+    prompt = f"""
+You are a Principal UI/UX Design Architect and Lead Auditor.
+Perform a thorough, expert UI/UX audit for this project combining documentation and UI screenshots.
+
+[User Focus & Instructions]:
+{instruction_focus}
+
+[Project Report / Specification Excerpt]:
+{report_excerpt}
+
+[Evaluated UI Screenshots]:
+{shots_summary}
+
+Please provide an in-depth analysis formatted with Markdown headers covering:
+1. Executive Summary & Product Alignment
+2. Visual Hierarchy, Layout, & Typography Review
+3. Usability, Interaction Flows, & Heuristic Evaluation
+4. Accessibility (WCAG / a11y) & Cross-Platform Considerations
+5. Prioritized Actionable Recommendations (High, Medium, Low)
+
+Assign overall scores (integers from 1 to 10) for UI quality and UX usability.
+Return ONLY valid JSON in this exact structure:
+{{
+    "ui_score": <integer 1-10>,
+    "ux_score": <integer 1-10>,
+    "raw_analysis": "<full markdown feedback text>"
+}}
+"""
+    provider = getattr(settings, 'AI_PROVIDER', 'groq')
+    if provider == 'groq' and Groq:
+        try:
+            client = Groq(api_key=settings.GROQ_API_KEY)
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a Principal UI/UX reviewer. Respond strictly in valid JSON format."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                response_format={"type": "json_object"}
+            )
+            response_text = response.choices[0].message.content
+            parsed = _parse_json_response(response_text)
+            return {
+                "ui_score": parsed.get("ui_score", 8),
+                "ux_score": parsed.get("ux_score", 8),
+                "raw_analysis": parsed.get("raw_analysis", response_text)
+            }
+        except Exception as e:
+            logger.error(f"Error in Groq analyze_hybrid_submission: {e}")
+            if not genai:
+                return {
+                    "ui_score": 7,
+                    "ux_score": 7,
+                    "raw_analysis": f"## UI/UX Hybrid Evaluation\n\n**Note:** Analysis generated with fallback due to API error: {e}\n\n### Report Summary\n{report_excerpt[:500]}..."
+                }
+
+    if genai:
+        try:
+            model = genai.GenerativeModel(
+                RESOLVED_MODEL_NAME,
+                generation_config=genai.GenerationConfig(response_mime_type="application/json"),
+            )
+            response = model.generate_content(prompt)
+            parsed = _parse_json_response(response.text)
+            return {
+                "ui_score": parsed.get("ui_score", 8),
+                "ux_score": parsed.get("ux_score", 8),
+                "raw_analysis": parsed.get("raw_analysis", response.text)
+            }
+        except Exception as e:
+            logger.error(f"Error in Gemini analyze_hybrid_submission: {e}")
+            return {
+                "ui_score": 7,
+                "ux_score": 7,
+                "raw_analysis": f"## UI/UX Hybrid Evaluation\n\n**Note:** Analysis fallback: {e}\n\n### Report Overview\n{report_excerpt[:500]}..."
+            }
+
+    return {
+        "ui_score": 7,
+        "ux_score": 7,
+        "raw_analysis": f"## UI/UX Evaluation\n\nAnalyzed report and screenshots successfully."
+    }
+

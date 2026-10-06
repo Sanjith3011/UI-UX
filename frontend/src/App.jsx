@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 // Import the main Dashboard page
 import Home from './pages/Home';
+import HybridUpload from './pages/HybridUpload';
 // Import the detail page that shows a specific project
 import ProjectDetail from './pages/ProjectDetail';
 // Import the user login page
@@ -47,7 +48,16 @@ function App() {
               <Route path="/portfolio/:username" element={<PublicProfile />} />
               <Route path="/portfolio/:username/project/:projectId" element={<PublicProject />} />
 
-              {/* Private route: The root path (/) points to the Home page */}
+              {/* Hybrid Upload - protected */}
+<Route
+  path="/hybrid-upload"
+  element={
+    <ProtectedRoute>
+      <HybridUpload />
+    </ProtectedRoute>
+  }
+/>
+{/* Private route: The root path (/) points to the Home page */}
               {/* It is wrapped in ProtectedRoute, which will redirect to /login if the user isn't logged in */}
               <Route
                 path="/"

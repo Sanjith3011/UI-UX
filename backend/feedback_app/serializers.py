@@ -2,6 +2,7 @@
 from rest_framework import serializers
 # Import our custom models
 from .models import DesignShare, ProjectArchive, Design, AIFeedback, Project
+from .hybrid_models import HybridSubmission, HybridScreenshot
 class DesignShareSerializer(serializers.ModelSerializer):
     class Meta:
         model = DesignShare
@@ -92,13 +93,24 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     def get_project_feedback(self, obj):
         """
-        Retrieve the latest processed archive's project_feedback for the given project.
+        Retrieve the latest feedback (from HybridSubmission or ProjectArchive) for the given project.
         """
+        hybrid = obj.hybrid_submissions.filter(status='done').order_by('-created_at').first()
+        if hybrid and hybrid.result:
+            return hybrid.result
         from .models import ProjectArchive
         archive = ProjectArchive.objects.filter(project=obj, processed=True).order_by('-uploaded_at').first()
         return archive.project_feedback if archive else None
 
     def get_archive_status(self, obj):
+        hybrid = obj.hybrid_submissions.order_by('-created_at').first()
+        if hybrid:
+            if hybrid.status == 'done':
+                return 'ready'
+            if hybrid.status == 'failed':
+                return 'failed'
+            return 'processing'
+        from .models import ProjectArchive
         archive = ProjectArchive.objects.filter(project=obj).order_by('-uploaded_at').first()
         if not archive:
             return None
@@ -109,10 +121,21 @@ class ProjectSerializer(serializers.ModelSerializer):
         return 'processing'
 
     def get_archive_error(self, obj):
+        hybrid = obj.hybrid_submissions.filter(status='failed').order_by('-created_at').first()
+        if hybrid and hybrid.result and hybrid.result.get('error'):
+            return hybrid.result.get('error')
+        from .models import ProjectArchive
         archive = ProjectArchive.objects.filter(project=obj, processed=False).order_by('-uploaded_at').first()
         return archive.error_message if archive and archive.error_message else None
 
     def get_archive_progress(self, obj):
+        hybrid = obj.hybrid_submissions.filter(status__in=['queued', 'processing']).order_by('-created_at').first()
+        if hybrid:
+            return {
+                "message": "AI is analyzing project report and screenshots..." if hybrid.status == 'processing' else "Submission queued for AI analysis...",
+                "percent": 65 if hybrid.status == 'processing' else 20
+            }
+        from .models import ProjectArchive
         archive = ProjectArchive.objects.filter(project=obj, processed=False).order_by('-uploaded_at').first()
         if not archive or not archive.processing_progress:
             return None
@@ -123,13 +146,17 @@ class ProjectSerializer(serializers.ModelSerializer):
         if is_public:
             if not self.instance:
                 raise serializers.ValidationError(
-                    {"is_public": "You cannot make this project public before uploading and processing a project ZIP archive."}
+                    {"is_public": "You cannot make this project public before submitting project designs or reports."}
                 )
             else:
-                has_archive = self.instance.archives.filter(processed=True).exists()
-                if not has_archive:
+                has_content = (
+                    self.instance.hybrid_submissions.filter(status='done').exists() or
+                    self.instance.archives.filter(processed=True).exists() or
+                    self.instance.designs.exists()
+                )
+                if not has_content:
                     raise serializers.ValidationError(
-                        {"is_public": "You cannot make this project public before uploading and processing a project ZIP archive."}
+                        {"is_public": "You cannot make this project public before uploading and processing project designs or reports."}
                     )
         return attrs
 
@@ -156,3 +183,23 @@ class ProjectSerializer(serializers.ModelSerializer):
         ]
 
 
+
+# ---------------------------------------------------------------
+# Hybrid submission serializers
+# ---------------------------------------------------------------
+class HybridScreenshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HybridScreenshot
+        fields = ['id', 'image', 'uploaded_at']
+
+class HybridSubmissionSerializer(serializers.ModelSerializer):
+    screenshots = HybridScreenshotSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = HybridSubmission
+        fields = [
+            'id', 'user', 'project', 'report_file', 'prompt',
+            'created_at', 'status', 'result',
+            'screenshots',
+        ]
+        read_only_fields = ['user', 'created_at', 'status', 'result']

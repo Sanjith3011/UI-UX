@@ -140,3 +140,4 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"Msg from {self.sender.username} to {self.receiver.username} at {self.created_at}"
+from .hybrid_models import HybridSubmission, HybridScreenshot

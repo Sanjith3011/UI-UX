@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.db.models import Q
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -48,6 +49,75 @@ class ProfileSearchView(APIView):
         ).select_related('user')[:20]
 
         return Response(ProfileSearchResultSerializer(profiles, many=True).data)
+
+
+class PublicDesignsView(APIView):
+    """
+    Public community feed of UI designs.
+    Allows anyone to view designs with screenshots, AI evaluation scores, and likes.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        user = request.user if request.user.is_authenticated else None
+        sort = request.query_params.get('sort', 'latest')
+        query = request.query_params.get('q', '').strip()
+
+        friend_ids = []
+        if user:
+            from .models import Friendship
+            friendships = Friendship.objects.filter(Q(user_a=user) | Q(user_b=user))
+            friends = [f.user_b if f.user_a == user else f.user_a for f in friendships]
+            friend_ids = [friend.id for friend in friends]
+
+        design_q = (Q(is_public=True) | Q(project__is_public=True)) & ~Q(image='')
+        if user:
+            design_q |= Q(project__user_id__in=friend_ids) | Q(project__user=user)
+
+        if query:
+            design_q &= (Q(project__title__icontains=query) | Q(project__user__username__icontains=query))
+
+        designs = Design.objects.filter(design_q).select_related('project__user').prefetch_related('likes', 'feedback')
+
+        user_liked_ids = set()
+        if user:
+            user_liked_ids = set(
+                DesignLike.objects.filter(user=user, design__in=designs).values_list('design_id', flat=True)
+            )
+
+        items = []
+        for d in designs:
+            fb = getattr(d, 'feedback', None)
+            ui_score = fb.ui_score if fb else None
+            ux_score = fb.ux_score if fb else None
+            like_count = d.likes.count()
+            owner_name = d.project.user.username if d.project and d.project.user else 'Anonymous'
+            items.append({
+                'id': d.id,
+                'design_id': d.id,
+                'image': d.image.url if d.image else None,
+                'project_id': d.project.id if d.project else None,
+                'project_title': d.project.title if d.project else 'Untitled Project',
+                'username': owner_name,
+                'owner_username': owner_name,
+                'timestamp': d.uploaded_at,
+                'uploaded_at': d.uploaded_at,
+                'title': f"shared a UI design in {d.project.title if d.project else 'a project'}",
+                'ui_score': ui_score,
+                'ux_score': ux_score,
+                'like_count': like_count,
+                'is_liked': d.id in user_liked_ids,
+            })
+
+        if sort == 'likes':
+            items.sort(key=lambda x: (x['like_count'], x['uploaded_at']), reverse=True)
+        elif sort == 'top_rated':
+            items.sort(key=lambda x: (x['ui_score'] or 0, x['ux_score'] or 0, x['uploaded_at']), reverse=True)
+        else:  # latest
+            items.sort(key=lambda x: x['uploaded_at'], reverse=True)
+
+        return Response(items[:80])
+
 
 
 class PublicProfileView(APIView):
@@ -162,12 +232,22 @@ class DesignLikeToggleView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
+        from django.db.models import Q
+        from .models import Friendship
+        friendships = Friendship.objects.filter(Q(user_a=request.user) | Q(user_b=request.user))
+        friend_ids = [f.user_b_id if f.user_a_id == request.user.id else f.user_a_id for f in friendships]
+
         design = Design.objects.filter(
-            id=pk, is_public=True, project__is_public=True
+            Q(id=pk) & (
+                Q(is_public=True) |
+                Q(project__is_public=True) |
+                Q(project__user_id__in=friend_ids) |
+                Q(project__user=request.user)
+            )
         ).select_related('project').first()
 
         if not design:
-            return Response({'detail': 'Design not found or not public.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Design not found or not accessible.'}, status=status.HTTP_404_NOT_FOUND)
 
         like, created = DesignLike.objects.get_or_create(design=design, user=request.user)
         if not created:
@@ -196,10 +276,14 @@ class ProjectVisibilityView(APIView):
 
         is_public = bool(request.data['is_public'])
         if is_public:
-            has_archive = project.archives.filter(processed=True).exists()
-            if not has_archive:
+            has_content = (
+                project.hybrid_submissions.filter(status='done').exists() or
+                project.archives.filter(processed=True).exists() or
+                project.designs.exists()
+            )
+            if not has_content:
                 return Response(
-                    {'detail': 'You cannot make this project public before uploading and processing a project ZIP archive.'},
+                    {'detail': 'Please submit a project report or upload design screenshots before making the project public.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 

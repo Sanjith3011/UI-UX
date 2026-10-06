@@ -314,3 +314,35 @@
 .generating-feedback .spin-icon {
     margin-bottom: 0;
 }
+
+/* Hybrid Upload Panel Styles */
+.hybrid-upload-card {
+    border-radius: 12px;
+}
+
+.report-dropzone:hover {
+    border-color: var(--accent) !important;
+    background: rgba(139, 92, 246, 0.05) !important;
+}
+
+.score-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.score-pill.ui-score {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.score-pill.ux-score {
+    background: rgba(168, 85, 247, 0.15);
+    color: #d8b4fe;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}

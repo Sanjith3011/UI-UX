@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 // Import specific icons from the lucide-react library for the UI
 import { Plus, Folder, Trash2, UploadCloud, MessageSquare, Heart, Sparkles, AlertCircle } from 'lucide-react';
 // Import our custom configured Axios instance to make API calls to the backend
-import api, { fetchFeed } from '../api';
+import api, { fetchFeed, toggleDesignLike, MEDIA_BASE } from '../api';
 import AuthContext from '../context/AuthContext';
 // Import the component-specific CSS file for styling
 import './Home.css';
@@ -127,6 +127,10 @@ const Home = () => {
         switch (type) {
             case 'project_created':
                 return <Folder size={16} className="feed-item-icon project-icon" />;
+            case 'design_published':
+                return <Sparkles size={16} className="feed-item-icon project-icon" />;
+            case 'hybrid_uploaded':
+                return <UploadCloud size={16} className="feed-item-icon zip-icon" />;
             case 'zip_uploaded':
                 return <UploadCloud size={16} className="feed-item-icon zip-icon" />;
             case 'comment_added':
@@ -138,7 +142,52 @@ const Home = () => {
         }
     };
 
+    const handleToggleLike = async (designId, e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        setFeedItems(prev => prev.map(item => {
+            if (item.design_id === designId) {
+                const nextLiked = !item.is_liked;
+                return {
+                    ...item,
+                    is_liked: nextLiked,
+                    like_count: Math.max(0, (item.like_count || 0) + (nextLiked ? 1 : -1))
+                };
+            }
+            return item;
+        }));
+
+        try {
+            const res = await toggleDesignLike(designId);
+            setFeedItems(prev => prev.map(item => {
+                if (item.design_id === designId) {
+                    return {
+                        ...item,
+                        is_liked: res.liked,
+                        like_count: res.like_count
+                    };
+                }
+                return item;
+            }));
+        } catch (err) {
+            console.error('Failed to toggle like:', err);
+            setFeedItems(prev => prev.map(item => {
+                if (item.design_id === designId) {
+                    const nextLiked = !item.is_liked;
+                    return {
+                        ...item,
+                        is_liked: nextLiked,
+                        like_count: Math.max(0, (item.like_count || 0) + (nextLiked ? 1 : -1))
+                    };
+                }
+                return item;
+            }));
+        }
+    };
+
     const getProjectLink = (item) => {
+        if (!item.project_id) return '/';
         if (item.owner_username === user?.username) {
             return `/project/${item.project_id}`;
         } else {
@@ -220,9 +269,14 @@ const Home = () => {
 
                 {/* Right side: General Activity Feed */}
                 <div className="dashboard-feed-col glass-panel">
-                    <div className="feed-header">
-                        <Sparkles size={18} className="feed-header-icon" />
-                        <h2>Global Design Feed</h2>
+                    <div className="feed-header" style={{ justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Sparkles size={18} className="feed-header-icon" />
+                            <h2>Global Design Feed</h2>
+                        </div>
+                        <Link to="/explore" className="feed-view-all-link" style={{ fontSize: '0.8rem', color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
+                            Explore Feed →
+                        </Link>
                     </div>
 
                     <div className="feed-content-scroll">
@@ -237,19 +291,75 @@ const Home = () => {
                             </div>
                         ) : (
                             <div className="feed-items-list">
-                                {feedItems.map((item, index) => (
-                                    <Link to={getProjectLink(item)} key={index} className="feed-item-card">
-                                        <div className="feed-item-header">
-                                            {renderFeedIcon(item.type)}
-                                            <span className="feed-username">{item.username}</span>
-                                            <span className="feed-time">
-                                                {new Date(item.timestamp).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <p className="feed-item-title">{item.title}</p>
-                                        {item.details && <p className="feed-item-details">{item.details}</p>}
-                                    </Link>
-                                ))}
+                                {feedItems.map((item, index) => {
+                                    if (item.type === 'design_published' && item.image) {
+                                        const imageUrl = item.image.startsWith('http') ? item.image : `${MEDIA_BASE}${item.image}`;
+                                        return (
+                                            <div key={index} className="feed-design-card glass-panel">
+                                                <div className="feed-item-header">
+                                                    <span className="feed-username">@{item.username}</span>
+                                                    <span className="feed-time">
+                                                        {new Date(item.timestamp).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+
+                                                <p className="feed-item-title" style={{ margin: '2px 0 8px 0' }}>
+                                                    {item.title}
+                                                </p>
+
+                                                {/* UI Design Image Preview */}
+                                                <Link to={getProjectLink(item)} className="feed-design-image-wrapper">
+                                                    <img
+                                                        src={imageUrl}
+                                                        alt="UI Design"
+                                                        className="feed-design-img"
+                                                    />
+                                                    {(item.ui_score !== null || item.ux_score !== null) && (
+                                                        <div className="feed-design-scores-badge">
+                                                            {item.ui_score !== null && <span>UI: {item.ui_score}/10</span>}
+                                                            {item.ux_score !== null && <span>UX: {item.ux_score}/10</span>}
+                                                        </div>
+                                                    )}
+                                                </Link>
+
+                                                {/* Like and Actions Bar */}
+                                                <div className="feed-design-actions">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => handleToggleLike(item.design_id, e)}
+                                                        className={`feed-like-btn ${item.is_liked ? 'liked' : ''}`}
+                                                        title={item.is_liked ? 'Unlike design' : 'Like design'}
+                                                    >
+                                                        <Heart
+                                                            size={16}
+                                                            fill={item.is_liked ? '#ef4444' : 'none'}
+                                                            color={item.is_liked ? '#ef4444' : 'currentColor'}
+                                                        />
+                                                        <span>{item.like_count || 0}</span>
+                                                    </button>
+
+                                                    <Link to={getProjectLink(item)} className="feed-view-project-link">
+                                                        View Details →
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <Link to={getProjectLink(item)} key={index} className="feed-item-card">
+                                            <div className="feed-item-header">
+                                                {renderFeedIcon(item.type)}
+                                                <span className="feed-username">@{item.username}</span>
+                                                <span className="feed-time">
+                                                    {new Date(item.timestamp).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <p className="feed-item-title">{item.title}</p>
+                                            {item.details && <p className="feed-item-details">{item.details}</p>}
+                                        </Link>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

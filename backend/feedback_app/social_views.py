@@ -4,7 +4,8 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import Friendship, FriendRequest, ChatMessage, Project, ProjectArchive, DesignLike, ProjectComment
+from .models import Friendship, FriendRequest, ChatMessage, Project, ProjectArchive, DesignLike, ProjectComment, Design
+from .hybrid_models import HybridSubmission
 from .serializers import UserSerializer
 
 
@@ -192,24 +193,28 @@ class ChatViewSet(viewsets.ViewSet):
 
 
 class FeedView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         """GET /api/feed/ - General activity feed"""
-        user = request.user
-        
+        user = request.user if request.user.is_authenticated else None
+
         # 1. Get user's friends list
-        friendships = Friendship.objects.filter(Q(user_a=user) | Q(user_b=user))
-        friends = [f.user_b if f.user_a == user else f.user_a for f in friendships]
-        friend_ids = [friend.id for friend in friends]
-        
+        friend_ids = []
+        if user:
+            friendships = Friendship.objects.filter(Q(user_a=user) | Q(user_b=user))
+            friends = [f.user_b if f.user_a == user else f.user_a for f in friendships]
+            friend_ids = [friend.id for friend in friends]
+
         # 2. Collect Feed Items:
         feed_items = []
 
         # A. Projects: Public projects, or any projects created by friends
-        projects = Project.objects.filter(
-            Q(is_public=True) | Q(user_id__in=friend_ids) | Q(user=user)
-        ).select_related('user').order_by('-created_at')[:30]
+        project_q = Q(is_public=True)
+        if user:
+            project_q |= Q(user_id__in=friend_ids) | Q(user=user)
+
+        projects = Project.objects.filter(project_q).select_related('user').order_by('-created_at')[:30]
 
         for p in projects:
             feed_items.append({
@@ -265,9 +270,57 @@ class FeedView(APIView):
                 'username': l.user.username,
                 'owner_username': l.design.project.user.username if l.design.project.user else 'Anonymous',
                 'timestamp': l.created_at,
-                'title': f"liked a page mockup in project: {l.design.project.title}",
-                'details': f"Generated design ID: {l.design.id}",
+                'title': f"liked a design in {l.design.project.title}",
+                'details': f"Design #{l.design.id}",
                 'project_id': l.design.project.id,
+            })
+
+        # E. UI Designs (Screenshots with likes and image previews)
+        design_q = Q(is_public=True) | Q(project__is_public=True)
+        if user:
+            design_q |= Q(project__user_id__in=friend_ids) | Q(project__user=user)
+
+        designs = Design.objects.filter(design_q).select_related('project__user').prefetch_related('likes', 'feedback').order_by('-uploaded_at')[:40]
+
+        user_liked_ids = set()
+        if user:
+            user_liked_ids = set(
+                DesignLike.objects.filter(user=user, design__in=designs).values_list('design_id', flat=True)
+            )
+
+        for d in designs:
+            fb = getattr(d, 'feedback', None)
+            feed_items.append({
+                'type': 'design_published',
+                'design_id': d.id,
+                'image': d.image.url if d.image else None,
+                'username': d.project.user.username if d.project and d.project.user else 'Anonymous',
+                'owner_username': d.project.user.username if d.project and d.project.user else 'Anonymous',
+                'timestamp': d.uploaded_at,
+                'title': f"shared a UI design in {d.project.title if d.project else 'a project'}",
+                'project_title': d.project.title if d.project else '',
+                'project_id': d.project.id if d.project else None,
+                'ui_score': fb.ui_score if fb else None,
+                'ux_score': fb.ux_score if fb else None,
+                'like_count': d.likes.count(),
+                'is_liked': d.id in user_liked_ids,
+            })
+
+        # F. Hybrid Submissions
+        hybrid_subs = HybridSubmission.objects.filter(
+            Q(project__is_public=True) | Q(user_id__in=friend_ids) | Q(user=user)
+        ).filter(status='done').select_related('user', 'project').order_by('-created_at')[:20]
+
+        for hs in hybrid_subs:
+            res = hs.result or {}
+            feed_items.append({
+                'type': 'hybrid_uploaded',
+                'username': hs.user.username,
+                'owner_username': hs.user.username,
+                'timestamp': hs.created_at,
+                'title': f"completed hybrid audit for: {hs.project.title if hs.project else 'Project'}",
+                'details': f"UI Score: {res.get('ui_score', 'N/A')}/10 • UX Score: {res.get('ux_score', 'N/A')}/10",
+                'project_id': hs.project.id if hs.project else None,
             })
 
         # Sort all feed items by timestamp descending

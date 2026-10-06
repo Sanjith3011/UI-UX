@@ -18,9 +18,10 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 import re
 from .models import Project, ProjectArchive, Design, AIFeedback, DesignShare
+from .hybrid_models import HybridSubmission, HybridScreenshot
 from .permissions import IsOwner
-from .serializers import ProjectSerializer, DesignSerializer, AIFeedbackSerializer, UserSerializer, ProjectArchiveSerializer
-from .ai_service import analyze_design, analyze_project_file, summarize_project, analyze_project_files_batched
+from .serializers import ProjectSerializer, DesignSerializer, AIFeedbackSerializer, UserSerializer, ProjectArchiveSerializer, HybridSubmissionSerializer
+from .ai_service import analyze_design, analyze_project_file, summarize_project, analyze_project_files_batched, analyze_hybrid_submission
 from .security_scanner import scan_zip_for_secrets, format_scan_error
 from .privacy import get_privacy_policy
 
@@ -694,21 +695,160 @@ class DeleteProjectFeedbackView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, pk):
-        """Delete all archives (and their feedback) for the given project.
-        This removes all ProjectArchive records, completely resetting the project state to accept a new ZIP."""
+        """Delete all archives and hybrid submissions (and their feedback) for the given project."""
         try:
-            # Locate the archives for this project
-            archives = ProjectArchive.objects.filter(project_id=pk)
-            if not archives.exists():
-                return JsonResponse({'detail': 'No feedback or archives found for this project.'}, status=200)
-            
-            # Check permission using the first archive's project
-            first_archive = archives.first()
-            if first_archive.project.user != request.user:
+            try:
+                project = Project.objects.get(id=pk)
+            except Project.DoesNotExist:
+                return JsonResponse({'detail': 'Project not found.'}, status=404)
+
+            if project.user != request.user:
                 return JsonResponse({'detail': 'Permission denied.'}, status=403)
-                
-            # Delete all archives for this project
-            archives.delete()
-            return JsonResponse({'detail': 'Processed feedback and all project archives deleted.'}, status=200)
+
+            ProjectArchive.objects.filter(project=project).delete()
+            HybridSubmission.objects.filter(project=project).delete()
+            return JsonResponse({'detail': 'Processed feedback and all project submissions deleted.'}, status=200)
         except Exception as e:
             return JsonResponse({'detail': f'Error deleting feedback: {str(e)}'}, status=500)
+
+
+def _extract_report_text(file_path):
+    if not file_path or not os.path.exists(file_path):
+        return ""
+    ext = os.path.splitext(file_path)[1].lower()
+    text = ""
+    try:
+        if ext == '.pdf':
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(file_path)
+                pages = [page.extract_text() or "" for page in reader.pages[:25]]
+                text = "\n\n".join(pages)
+            except Exception:
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(file_path) as pdf:
+                        pages = [p.extract_text() or "" for p in pdf.pages[:25]]
+                        text = "\n\n".join(pages)
+                except Exception as e2:
+                    logger.warning(f"PDF extraction error: {e2}")
+        elif ext in ('.docx', '.doc'):
+            try:
+                import docx
+                doc = docx.Document(file_path)
+                text = "\n".join([p.text for p in doc.paragraphs if p.text])
+            except Exception as e:
+                logger.warning(f"DOCX extraction error: {e}")
+        else:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                text = f.read(150_000)
+    except Exception as e:
+        logger.error(f"Error reading report file {file_path}: {e}")
+    return text.strip()
+
+
+def process_hybrid_submission_async(submission_id):
+    try:
+        submission = HybridSubmission.objects.get(id=submission_id)
+        submission.status = 'processing'
+        submission.save(update_fields=['status'])
+
+        report_text = _extract_report_text(submission.report_file.path)
+        screenshots = list(submission.screenshots.all())
+
+        screenshot_evaluations = []
+        for idx, shot in enumerate(screenshots, start=1):
+            design = None
+            if submission.project:
+                design = Design.objects.create(
+                    project=submission.project,
+                    image=shot.image,
+                    is_public=submission.project.is_public
+                )
+
+            img_path = shot.image.path
+            img_analysis = analyze_design(img_path)
+
+            if design and img_analysis:
+                AIFeedback.objects.create(
+                    design=design,
+                    raw_analysis=img_analysis.get('raw_analysis', ''),
+                    ui_score=img_analysis.get('ui_score') or 0,
+                    ux_score=img_analysis.get('ux_score') or 0
+                )
+
+            screenshot_evaluations.append({
+                "screenshot_index": idx,
+                "ui_score": img_analysis.get('ui_score') if img_analysis else None,
+                "ux_score": img_analysis.get('ux_score') if img_analysis else None,
+                "summary": (img_analysis.get('raw_analysis') or '')[:300] if img_analysis else ''
+            })
+
+        feedback_result = analyze_hybrid_submission(
+            report_text=report_text,
+            screenshot_evaluations=screenshot_evaluations,
+            custom_prompt=submission.prompt
+        )
+
+        submission.status = 'done'
+        submission.result = feedback_result
+        submission.save(update_fields=['status', 'result'])
+
+    except Exception as e:
+        logger.exception("Failed to process hybrid submission %s", submission_id)
+        try:
+            sub = HybridSubmission.objects.get(id=submission_id)
+            sub.status = 'failed'
+            sub.result = {'error': str(e)}
+            sub.save(update_fields=['status', 'result'])
+        except Exception:
+            pass
+
+
+class HybridSubmissionCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        report_file = request.FILES.get('report_file')
+        prompt = request.data.get('prompt', '')
+        project_id = request.data.get('project') or request.data.get('project_id')
+
+        project = None
+        if project_id:
+            try:
+                project = Project.objects.get(id=project_id, user=request.user)
+            except Project.DoesNotExist:
+                return Response({'detail': 'Project not found or access denied.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not report_file:
+            return Response({'detail': 'A report file (.pdf, .docx, .txt) is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        submission = HybridSubmission.objects.create(
+            user=request.user,
+            project=project,
+            report_file=report_file,
+            prompt=prompt,
+            status='queued'
+        )
+
+        screenshots = request.FILES.getlist('screenshots')
+        for s in screenshots:
+            HybridScreenshot.objects.create(submission=submission, image=s)
+
+        t = threading.Thread(target=process_hybrid_submission_async, args=(submission.id,))
+        t.daemon = True
+        t.start()
+
+        serializer = HybridSubmissionSerializer(submission)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def get(self, request, *args, **kwargs):
+        project_id = request.query_params.get('project')
+        qs = HybridSubmission.objects.filter(user=request.user)
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        submissions = qs.order_by('-created_at')
+        serializer = HybridSubmissionSerializer(submissions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

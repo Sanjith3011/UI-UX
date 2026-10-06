@@ -38,7 +38,7 @@ export const downloadProjectReport = (projectId) => {
     });
 };
 
-const MAX_ZIP_UPLOAD_MB = 200;
+export const MAX_ZIP_UPLOAD_MB = 200;
 
 export const uploadProjectArchive = (projectId, zipFile) => {
   const formData = new FormData();
@@ -98,6 +98,9 @@ export const updateMyProfile = (data) =>
 export const fetchFeed = () =>
   api.get('feed/').then((res) => res.data);
 
+export const fetchPublicDesigns = (params = {}) =>
+  api.get('public-designs/', { params }).then((res) => res.data);
+
 export const fetchFriends = () =>
   api.get('friends/').then((res) => res.data);
 
@@ -127,4 +130,11 @@ export const cancelArchiveUpload = (archiveId) =>
 
 export const MEDIA_BASE = 'http://127.0.0.1:8000';
 
-export { MAX_ZIP_UPLOAD_MB };
+export const createHybridSubmission = (formData) =>
+  api.post('hybrid-submissions/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((res) => res.data);
+
+export const fetchHybridSubmissions = (projectId) =>
+  api.get('hybrid-submissions/', { params: projectId ? { project: projectId } : {} }).then((res) => res.data);
+

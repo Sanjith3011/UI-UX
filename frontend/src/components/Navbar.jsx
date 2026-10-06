@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Layers, LogOut, User, Shield, Trash2, Compass, Users, MessageSquare } from 'lucide-react';
+import { Layers, LogOut, User, Shield, Trash2, Compass, Users, MessageSquare, UploadCloud } from 'lucide-react';
 import { useContext, useState, useEffect } from 'react';
 import AuthContext from '../context/AuthContext';
 import { deleteAllUserData, fetchFriendRequests } from '../api';
@@ -66,7 +66,7 @@ const Navbar = () => {
                 </Link>
                 <div className="navbar-links">
                     <Link to="/explore" className="navbar-link navbar-privacy-link">
-                        <Compass size={16} /> Explore
+                        <Compass size={16} /> Public Feed
                     </Link>
                     <Link to="/privacy" className="navbar-link navbar-privacy-link">
                         <Shield size={16} /> Privacy
@@ -79,6 +79,9 @@ const Navbar = () => {
                             </Link>
                             <Link to="/chat" className="navbar-link navbar-privacy-link">
                                 <MessageSquare size={16} /> Messages
+                            </Link>
+                            <Link to="/hybrid-upload" className="navbar-link navbar-privacy-link">
+                                <UploadCloud size={16} /> Hybrid Upload
                             </Link>
                             {user.username && (
                                 <Link to={`/portfolio/${user.username}`} className="navbar-link navbar-privacy-link">

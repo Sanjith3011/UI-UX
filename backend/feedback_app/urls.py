@@ -6,12 +6,13 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ProjectViewSet, DesignViewSet, AIFeedbackViewSet, RegisterView,
     ProjectReportPDFView, ArchiveUploadView, DeleteProjectFeedbackView,
-    PrivacyPolicyView, DeleteAllUserDataView, CancelArchiveUploadView,
+    PrivacyPolicyView, DeleteAllUserDataView, CancelArchiveUploadView, HybridSubmissionCreateView,
 )
 from .portfolio_views import (
     ProfileSearchView, PublicProfileView, PublicProjectView,
     ProjectCommentListCreateView, OwnerProjectCommentsView,
     CommentReplyView, DesignLikeToggleView, MyProfileView, ProjectVisibilityView,
+    PublicDesignsView,
 )
 from .social_views import (
     FriendshipViewSet, ChatViewSet, FeedView
@@ -42,6 +43,7 @@ urlpatterns = [
     path('projects/<int:pk>/report/', ProjectReportPDFView.as_view(), name='project-report'),
     path('archives/', ArchiveUploadView.as_view(), name='archive-upload'),
     path('archives/<int:pk>/cancel/', CancelArchiveUploadView.as_view(), name='cancel-archive-upload'),
+    path('hybrid-submissions/', HybridSubmissionCreateView.as_view(), name='hybrid-submissions'),
     path('explore/search/', ProfileSearchView.as_view(), name='profile-search'),
     path('portfolio/<str:username>/', PublicProfileView.as_view(), name='public-profile'),
     path('portfolio/<str:username>/projects/<int:project_id>/', PublicProjectView.as_view(), name='public-project'),
@@ -50,6 +52,7 @@ urlpatterns = [
     path('projects/<int:pk>/comments/', OwnerProjectCommentsView.as_view(), name='owner-project-comments'),
     path('projects/<int:pk>/comments/<int:comment_id>/reply/', CommentReplyView.as_view(), name='comment-reply'),
     path('designs/<int:pk>/like/', DesignLikeToggleView.as_view(), name='design-like'),
+    path('public-designs/', PublicDesignsView.as_view(), name='public-designs'),
     path('profile/me/', MyProfileView.as_view(), name='my-profile'),
     
     # Social Platform Routes
