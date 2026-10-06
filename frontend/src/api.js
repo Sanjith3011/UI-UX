@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const RAW_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+export const MEDIA_BASE = RAW_BACKEND_URL.replace(/\/+$/, '');
+
 const api = axios.create({
-    baseURL: 'http://127.0.0.1:8000/api/',
+    baseURL: `${MEDIA_BASE}/api/`,
 });
 
 api.interceptors.request.use(
@@ -128,7 +131,6 @@ export const sendChatMessage = (username, body) =>
 export const cancelArchiveUpload = (archiveId) =>
   api.post(`archives/${archiveId}/cancel/`).then((res) => res.data);
 
-export const MEDIA_BASE = 'http://127.0.0.1:8000';
 
 export const createHybridSubmission = (formData) =>
   api.post('hybrid-submissions/', formData, {

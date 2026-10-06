@@ -1,0 +1,41 @@
+services:
+  # Django API Backend
+  - type: web
+    name: uiux-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: ./build.sh
+    startCommand: gunicorn backend.wsgi:application
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false # Paste your Supabase URI here in Render Dashboard
+      - key: GROQ_API_KEY
+        sync: false # Paste your Groq API key here in Render Dashboard
+      - key: AI_PROVIDER
+        value: groq
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "true"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://*.onrender.com
+
+  # React Frontend (Static Site)
+  - type: web
+    name: uiux-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_BACKEND_URL
+        sync: false # Set to https://your-backend-name.onrender.com
