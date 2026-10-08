@@ -75,8 +75,14 @@ export const AuthProvider = ({ children }) => {
             // Try to extract a more specific error message from the Django API response if available
             if (error.response?.data) {
                 const data = error.response.data;
-                if (Array.isArray(data.username) && data.username.length > 0) {
+                if (typeof data === 'string' && (data.includes('<!DOCTYPE') || data.includes('<html') || data.includes('<title>Error'))) {
+                    message = `Backend API endpoint not found (HTTP ${error.response.status}). Please check that VITE_BACKEND_URL in your frontend Render settings points to your actual backend URL.`;
+                } else if (Array.isArray(data.username) && data.username.length > 0) {
                     message = data.username[0];
+                } else if (Array.isArray(data.password) && data.password.length > 0) {
+                    message = data.password[0];
+                } else if (Array.isArray(data.email) && data.email.length > 0) {
+                    message = data.email[0];
                 } else {
                     const values = Object.values(data);
                     if (values.length > 0 && Array.isArray(values[0]) && values[0].length > 0) {
@@ -84,7 +90,7 @@ export const AuthProvider = ({ children }) => {
                     } else if (typeof data.detail === 'string') {
                         message = data.detail;
                     } else if (typeof data === 'string') {
-                        message = data.substring(0, 100);
+                        message = data.substring(0, 120);
                     }
                 }
             } else if (error.message) {
