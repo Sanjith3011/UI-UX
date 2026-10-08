@@ -753,7 +753,18 @@ def process_hybrid_submission_async(submission_id):
         submission.status = 'processing'
         submission.save(update_fields=['status'])
 
-        report_text = _extract_report_text(submission.report_file.path)
+        try:
+            file_path = submission.report_file.path
+            report_text = _extract_report_text(file_path)
+        except (AttributeError, NotImplementedError, ValueError, OSError):
+            report_text = ""
+            if submission.report_file:
+                try:
+                    submission.report_file.open('rb')
+                    raw_bytes = submission.report_file.read()
+                    report_text = raw_bytes.decode('utf-8', errors='ignore')[:150000]
+                except Exception:
+                    pass
         screenshots = list(submission.screenshots.all())
 
         screenshot_evaluations = []

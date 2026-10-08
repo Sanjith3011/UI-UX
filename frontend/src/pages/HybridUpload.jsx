@@ -175,8 +175,22 @@ const HybridUpload = () => {
             }
         } catch (err) {
             console.error(err);
-            const msg = err.response?.data?.detail || err.message || 'Upload failed.';
-            alert(`Submission error: ${msg}`);
+            const data = err.response?.data;
+            let msg = 'Upload failed.';
+            if (data) {
+                if (typeof data.detail === 'string') {
+                    msg = data.detail;
+                } else if (typeof data === 'string') {
+                    msg = data;
+                } else if (typeof data === 'object') {
+                    msg = Object.entries(data)
+                        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+                        .join('\n');
+                }
+            } else if (err.message) {
+                msg = err.message;
+            }
+            alert(`Submission error:\n${msg}`);
             setStatusMessage('Failed to submit.');
         } finally {
             setSubmitting(false);

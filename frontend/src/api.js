@@ -48,7 +48,6 @@ export const uploadProjectArchive = (projectId, zipFile) => {
   formData.append('zip_file', zipFile);
   formData.append('project', projectId);
   return api.post('archives/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 300000,
     validateStatus: (status) => status === 201 || status === 202,
   });
@@ -133,9 +132,7 @@ export const cancelArchiveUpload = (archiveId) =>
 
 
 export const createHybridSubmission = (formData) =>
-  api.post('hybrid-submissions/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then((res) => res.data);
+  api.post('hybrid-submissions/', formData).then((res) => res.data);
 
 export const fetchHybridSubmissions = (projectId) =>
   api.get('hybrid-submissions/', { params: projectId ? { project: projectId } : {} }).then((res) => res.data);

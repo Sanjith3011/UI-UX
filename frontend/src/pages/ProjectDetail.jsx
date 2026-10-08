@@ -167,9 +167,7 @@ const ProjectDetail = () => {
         formData.append('project', id);
 
         try {
-            await api.post('designs/', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await api.post('designs/', formData);
             fetchProject();
         } catch (error) {
             console.error('Error uploading design:', error);
