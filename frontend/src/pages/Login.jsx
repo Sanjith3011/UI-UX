@@ -21,6 +21,8 @@ const Login = () => {
     // State to store and display any login errors (e.g., "Invalid credentials")
     const [error, setError] = useState('');
 
+    const [loading, setLoading] = useState(false);
+
     // Async function to handle form submission
     const handleSubmit = async (e) => {
         // Prevent the default browser form submission behavior
@@ -28,14 +30,19 @@ const Login = () => {
 
         // Clear any previous error messages before trying again
         setError('');
+        setLoading(true);
 
-        // Call the loginUser function from AuthContext with the current input values
-        const result = await loginUser(username, password);
+        try {
+            // Call the loginUser function from AuthContext with the current input values
+            const result = await loginUser(username, password);
 
-        // If the login attempt failed
-        if (!result.success) {
-            // Update the error state so the message is displayed to the user
-            setError(result.message);
+            // If the login attempt failed
+            if (!result.success) {
+                // Update the error state so the message is displayed to the user
+                setError(result.message);
+            }
+        } finally {
+            setLoading(false);
         }
         // Note: We don't need a success block here because loginUser automatically
         // redirects the user to the Home page upon success using navigate('/')
@@ -81,9 +88,21 @@ const Login = () => {
                             required // HTML5 validation: field cannot be empty
                         />
                     </div>
+                    {/* Inline error above submit button */}
+                    {error && (
+                        <div className="auth-error" style={{ marginBottom: '16px' }}>
+                            {error}
+                        </div>
+                    )}
+
                     {/* Submit button. Triggers the onSubmit event on the form */}
-                    <button type="submit" className="glass-button auth-submit">
-                        Sign In
+                    <button
+                        type="submit"
+                        className="glass-button auth-submit"
+                        disabled={loading}
+                        style={{ opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+                    >
+                        {loading ? 'Signing In...' : 'Sign In'}
                     </button>
                 </form>
 

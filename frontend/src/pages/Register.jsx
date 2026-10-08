@@ -23,6 +23,8 @@ const Register = () => {
     // State to hold and display any registration error messages
     const [error, setError] = useState('');
 
+    const [loading, setLoading] = useState(false);
+
     // Async function triggered when the user submits the registration form
     const handleSubmit = async (e) => {
         // Prevent the browser's default behavior of reloading the page on form submit
@@ -30,16 +32,20 @@ const Register = () => {
 
         // Reset any existing error messages
         setError('');
+        setLoading(true);
 
-        // Call the registration function with the collected input values
-        const result = await registerUser(username, email, password);
+        try {
+            // Call the registration function with the collected input values
+            const result = await registerUser(username, email, password);
 
-        // If the registration failed
-        if (!result.success) {
-            // Update the UI to show the specific error message returned from the backend
-            setError(result.message);
+            // If the registration failed
+            if (!result.success) {
+                // Update the UI to show the specific error message returned from the backend
+                setError(result.message);
+            }
+        } finally {
+            setLoading(false);
         }
-        // Success case is handled inside registerUser (which logs them in and redirects to '/')
     };
 
     // The JSX layout rendered by the component
@@ -96,9 +102,29 @@ const Register = () => {
                             required // HTML5 validation: field cannot be empty
                         />
                     </div>
+
+                    {/* Inline error right above submit button so it's always in view */}
+                    {error && (
+                        <div className="auth-error" style={{ marginBottom: '16px' }}>
+                            {error}
+                            {error.toLowerCase().includes('already taken') && (
+                                <div style={{ marginTop: '8px' }}>
+                                    <Link to="/login" style={{ color: '#fff', textDecoration: 'underline', fontWeight: 'bold' }}>
+                                        Click here to Sign In instead →
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Form submit button */}
-                    <button type="submit" className="glass-button auth-submit">
-                        Create Account
+                    <button
+                        type="submit"
+                        className="glass-button auth-submit"
+                        disabled={loading}
+                        style={{ opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+                    >
+                        {loading ? 'Creating Account...' : 'Create Account'}
                     </button>
                 </form>
 
