@@ -1,0 +1,447 @@
+================================================================================
+                    CRITIQUEAI: UI/UX FEEDBACK ANALYZER TOOL
+                     COMPREHENSIVE PROJECT SPECIFICATION & ARCHITECTURE
+================================================================================
+Last Updated: October 2026
+Repository: https://github.com/Sanjith3011/UI-UX.git
+Live Backend: https://uiux-backend-nqeo.onrender.com
+Live Frontend: https://uiux-frontend-k2k9.onrender.com
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & MISSION
+2. HIGH-LEVEL ARCHITECTURE & DESIGN SYSTEM
+3. COMPLETE TECHNOLOGY STACK & DEPENDENCIES
+4. DATABASE SCHEMA & DATA MODELS
+5. COMPREHENSIVE REST API REFERENCE
+6. FRONTEND APPLICATION ARCHITECTURE & ROUTE MAP
+7. CORE WORKFLOWS & ENGINE MECHANICS
+8. SECURITY, PRIVACY & COMPLIANCE ARCHITECTURE
+9. DEPLOYMENT & INFRASTRUCTURE SPECIFICATION
+10. REPOSITORY DIRECTORY & FILE INVENTORY
+
+================================================================================
+1. EXECUTIVE SUMMARY & MISSION
+================================================================================
+CritiqueAI (UI/UX Feedback Analyzer Tool) is an enterprise-grade web application 
+engineered to bridge the gap between design specifications (PRDs, design tokens, 
+style guides) and visual user interfaces.
+
+Traditional design critique is bottlenecked by subjective opinions and manual 
+inspections. CritiqueAI automates and elevates this workflow by:
+1. Multimodal Heuristic Evaluation: Ingesting formal design documentation 
+   (.pdf, .docx, .txt) alongside interface mockups (PNG, JPG, WebP) to evaluate 
+   both visual aesthetics and usability heuristics.
+2. Industry-Standard Benchmarking: Scoring interfaces against WCAG 2.1 
+   accessibility compliance, visual hierarchy, typography, and Nielsen's 10 
+   Usability Heuristics.
+3. Social Critique & Designer Showcase: Enabling product designers to curate 
+   public portfolios, share work with a global network, collect structured 
+   feedback, exchange direct messages, and track iterative score improvements.
+
+================================================================================
+2. HIGH-LEVEL ARCHITECTURE & DESIGN SYSTEM
+================================================================================
+The application follows a decoupled client-server architecture:
+
+  +-----------------------+           REST API / JWT          +------------------------+
+  |    React Frontend     | <===============================> |     Django Backend     |
+  |  (Vite + Vanilla CSS) |                                   |     (DRF + Gunicorn)   |
+  +-----------------------+                                   +------------------------+
+              |                                                           |
+              |                                          +----------------+---------------+
+              |                                          |                                |
+              v                                          v                                v
+  +-----------------------+                  +------------------------+       +------------------------+
+  |    Render CDN /       |                  |   Supabase PostgreSQL  |       |   Multimodal AI Engine |
+  |  Static Site Hosting  |                  | (Session Pooler IPv4)  |       |   (Groq / Gemini API)  |
+  +-----------------------+                  +------------------------+       +------------------------+
+
+Design System & Aesthetics:
+- Visual Language: Slate / Obsidian Dark Mode (#090D16 base, #111827 surface)
+  with radiant indigo (#6366F1), violet (#8B5CF6), and emerald (#10B981) accents.
+- Typography: Plus Jakarta Sans for UI elements, headings, and data tables; 
+  JetBrains Mono for metrics and technical tokens.
+- Glassmorphism & Elevation: Custom backdrop blur filters (16px - 24px) with 
+  subtle 1px border lines and inset glow highlights.
+- Information Architecture:
+  * Pill Header Navigation: Floating header featuring brand, central tab pills,
+    and a designer profile popover with integrated account controls.
+  * Executive Metrics Bar: 4-card status overview (Total Projects, Audited Screens,
+    Public Portfolios, Heuristic Engine Status).
+  * 3-Step Guided Studio: Step 01 (Documentation) -> Step 02 (Screenshots) ->
+    Step 03 (Audit Scope & Presets).
+
+================================================================================
+3. COMPLETE TECHNOLOGY STACK & DEPENDENCIES
+================================================================================
+
+3.1 FRONTEND
+- Core: React 18 / 19, JavaScript (ES2023+), HTML5 Semantic Structure.
+- Build Tool: Vite 7.3+ (Fast HMR, optimized production rollup bundle).
+- Styling: Vanilla CSS with CSS Custom Properties (--primary, --surface, etc.).
+- Icons: Lucide React (feather-style modern icons).
+- Routing: React Router DOM v7 (Declarative routing, protected route guards).
+- HTTP Client: Axios (configured with baseURL interceptors & JWT handling).
+- Markdown Renderer: React Markdown (for formatted AI audit feedback rendering).
+
+3.2 BACKEND
+- Framework: Python 3.11.9, Django 5.2+ / 6.0.
+- REST API: Django REST Framework (DRF 3.16+).
+- Authentication: djangorestframework-simplejwt (stateless access & refresh tokens).
+- Cross-Origin Resource Sharing: django-cors-headers.
+- Static Files: WhiteNoise 6.8+ (production static file compression & caching).
+- Production WSGI Server: Gunicorn 23.0+.
+- Database Adapter: dj-database-url, psycopg2-binary 2.9+.
+
+3.3 AI & DOCUMENT PROCESSING
+- LLM / Multimodal API: Groq API (`groq>=0.11.0`) and Google GenAI (`google-genai>=2.0.0`).
+- Document Parsers:
+  * `pypdf>=5.0.0`: PDF text and metadata extraction.
+  * `python-docx>=1.1.0`: Microsoft Word (.docx) specification parsing.
+- Image Processing: Pillow 11.0+ (image dimension validation, thumbnail generation).
+- PDF Report Export: ReportLab 4.2+ & xhtml2pdf 0.2.16 (HTML-to-PDF report generator).
+
+3.4 CLOUD & INFRASTRUCTURE
+- Database: Supabase managed PostgreSQL (with IPv4 Connection Pooler).
+- Web Hosting: Render.com (Web Service for Backend, Static Site for Frontend).
+
+================================================================================
+4. DATABASE SCHEMA & DATA MODELS
+================================================================================
+
+1. UserProfile
+   - user: OneToOneField(User, on_delete=CASCADE, related_name='profile')
+   - bio: TextField(blank=True)
+   - portfolio_public: BooleanField(default=True)
+   - created_at: DateTimeField(auto_now_add=True)
+
+2. Project
+   - user: ForeignKey(User, on_delete=CASCADE, related_name='projects')
+   - title: CharField(max_length=200)
+   - description: TextField(blank=True)
+   - is_public: BooleanField(default=False)
+   - created_at: DateTimeField(auto_now_add=True)
+   - updated_at: DateTimeField(auto_now=True)
+
+3. Design
+   - project: ForeignKey(Project, on_delete=CASCADE, related_name='designs')
+   - image: ImageField(upload_to='designs/')
+   - is_public: BooleanField(default=False)
+   - uploaded_at: DateTimeField(auto_now_add=True)
+
+4. DesignShare
+   - design: OneToOneField(Design, on_delete=CASCADE, related_name='share')
+   - token: CharField(max_length=64, unique=True)
+   - expires_at: DateTimeField(null=True, blank=True)
+   - created_at: DateTimeField(auto_now_add=True)
+
+5. ProjectArchive
+   - project: ForeignKey(Project, on_delete=CASCADE, related_name='archives')
+   - zip_file: FileField(upload_to='archives/')
+   - uploaded_at: DateTimeField(auto_now_add=True)
+   - processed: BooleanField(default=False)
+   - error_message: TextField(null=True, blank=True)
+   - zip_hash: CharField(max_length=64, null=True, blank=True)
+   - analysis: JSONField(null=True, blank=True)
+   - project_feedback: JSONField(null=True, blank=True)
+   - processing_progress: JSONField(null=True, blank=True)
+   - cancelled: BooleanField(default=False)
+
+6. AIFeedback
+   - design: OneToOneField(Design, on_delete=CASCADE, related_name='feedback')
+   - raw_analysis: TextField()
+   - ui_score: IntegerField(default=0)  # Scale 1-10
+   - ux_score: IntegerField(default=0)  # Scale 1-10
+   - generated_at: DateTimeField(auto_now_add=True)
+
+7. HybridSubmission
+   - user: ForeignKey(User, on_delete=CASCADE, related_name='hybrid_submissions')
+   - project: ForeignKey(Project, on_delete=CASCADE, related_name='hybrid_submissions', null=True, blank=True)
+   - report_file: FileField(upload_to='reports/')  # Supports .pdf, .docx, .txt
+   - prompt: TextField(blank=True)
+   - created_at: DateTimeField(auto_now_add=True)
+   - status: CharField(max_length=10, choices: queued, processing, done, failed)
+   - result: JSONField(null=True, blank=True)
+
+8. HybridScreenshot
+   - submission: ForeignKey(HybridSubmission, on_delete=CASCADE, related_name='screenshots')
+   - image: ImageField(upload_to='hybrid_screenshots/')
+   - uploaded_at: DateTimeField(auto_now_add=True)
+
+9. ProjectComment
+   - project: ForeignKey(Project, on_delete=CASCADE, related_name='comments')
+   - author: ForeignKey(User, on_delete=CASCADE, related_name='project_comments')
+   - parent: ForeignKey('self', null=True, blank=True, on_delete=CASCADE, related_name='replies')
+   - body: TextField()
+   - is_owner_reply: BooleanField(default=False)
+   - created_at: DateTimeField(auto_now_add=True)
+
+10. DesignLike
+    - design: ForeignKey(Design, on_delete=CASCADE, related_name='likes')
+    - user: ForeignKey(User, on_delete=CASCADE, related_name='design_likes')
+    - created_at: DateTimeField(auto_now_add=True)
+    - Unique Constraint: (design, user)
+
+11. FriendRequest
+    - sender: ForeignKey(User, on_delete=CASCADE, related_name='sent_friend_requests')
+    - receiver: ForeignKey(User, on_delete=CASCADE, related_name='received_friend_requests')
+    - created_at: DateTimeField(auto_now_add=True)
+    - Unique Constraint: (sender, receiver)
+
+12. Friendship
+    - user_a: ForeignKey(User, on_delete=CASCADE, related_name='friendships_a')
+    - user_b: ForeignKey(User, on_delete=CASCADE, related_name='friendships_b')
+    - created_at: DateTimeField(auto_now_add=True)
+    - Unique Constraint: (user_a, user_b)
+
+13. ChatMessage
+    - sender: ForeignKey(User, on_delete=CASCADE, related_name='sent_messages')
+    - receiver: ForeignKey(User, on_delete=CASCADE, related_name='received_messages')
+    - body: TextField()
+    - created_at: DateTimeField(auto_now_add=True)
+
+================================================================================
+5. COMPREHENSIVE REST API REFERENCE
+================================================================================
+
+Authentication & Security:
+  POST   /api/register/                       Register new designer account
+  POST   /api/token/                          Authenticate & issue access + refresh JWT
+  POST   /api/token/refresh/                  Refresh expired access token
+  GET    /api/privacy/                        Fetch system privacy statement
+  POST   /api/account/delete-all-data/        GDPR-compliant wipe of all user assets
+
+Projects & Design Assets:
+  GET    /api/projects/                       List user projects
+  POST   /api/projects/                       Create a new design project
+  GET    /api/projects/<id>/                  Retrieve project details + designs + feedback
+  DELETE /api/projects/<id>/                  Delete project and all associated screens
+  PATCH  /api/projects/<id>/visibility/       Toggle project public/private state
+  DELETE /api/projects/<id>/feedback/         Clear AI feedback from project
+  GET    /api/projects/<id>/report/           Generate and download branded PDF report
+  GET    /api/projects/<id>/comments/         List comments on project
+  POST   /api/projects/<id>/comments/         Submit comment to project
+  POST   /api/projects/<id>/comments/<cid>/reply/  Reply to existing comment
+
+Designs & AI Feedback:
+  GET    /api/designs/                        List designs
+  POST   /api/designs/                        Upload single UI screenshot
+  GET    /api/designs/<id>/                   Retrieve single design
+  DELETE /api/designs/<id>/                   Delete design and its feedback
+  POST   /api/designs/<id>/like/              Toggle like on a design
+  GET    /api/feedback/                       List AI feedback entries
+
+Hybrid Evaluation Studio:
+  POST   /api/hybrid-submissions/             Upload report document + multiple screenshots
+  GET    /api/hybrid-submissions/             Poll status and retrieve audit results
+  POST   /api/archives/                       Upload ZIP archive containing UI bundle
+  POST   /api/archives/<id>/cancel/           Cancel in-progress ZIP batch evaluation
+
+Community Showcase, Portfolios & Social:
+  GET    /api/feed/                           Global design activity feed
+  GET    /api/public-designs/                 Public UI feed with sort (latest, likes, rating)
+  GET    /api/explore/search/                 Search designer profiles
+  GET    /api/portfolio/<username>/           View designer's public portfolio
+  GET    /api/portfolio/<username>/projects/<id>/  Public view of specific project
+  GET    /api/profile/me/                     Get authenticated user's profile info
+
+Friends & Direct Messaging:
+  GET    /api/friends/                        List accepted friends
+  POST   /api/friends/send/                   Send friend request by username
+  GET    /api/friends/requests/               List incoming pending requests
+  POST   /api/friends/respond/<id>/           Accept or decline friend request
+  DELETE /api/friends/remove/<username>/      Remove friendship
+  GET    /api/chat/threads/                   List all active conversation threads
+  GET    /api/chat/messages/<username>/       Fetch chat message history with a friend
+  POST   /api/chat/send/                      Send direct message to a friend
+
+================================================================================
+6. FRONTEND APPLICATION ARCHITECTURE & ROUTE MAP
+================================================================================
+
+Route Registry (frontend/src/App.jsx):
+  Public Routes:
+    /login                                    Login page
+    /register                                 Account registration
+    /privacy                                  Privacy & compliance overview
+    /explore                                  Showcase feed & designer discovery
+    /portfolio/:username                      Public profile & design portfolio
+    /portfolio/:username/project/:projectId   Public project page
+
+  Protected Routes (Require JWT Login):
+    /                                         Executive Workspace Dashboard
+    /hybrid-upload                            3-Step Heuristic Audit Studio
+    /project/:id                              Project Detail & Heuristic Inspection
+    /friends                                  Designer Network & Connection Requests
+    /chat                                     Direct Messaging & Critique Threads
+
+Key Component Modules:
+  - Navbar.jsx / Navbar.css: Floating pill header with profile popover & safe data clearing.
+  - Home.jsx / Home.css: Metrics overview, project grid, search/filter, and spotlight.
+  - HybridUpload.jsx / HybridUpload.css: Spec document dropzone, screenshot previews, presets.
+  - ProjectDetail.jsx / ProjectDetail.css: Multi-screen inspection, score cards, and comments.
+  - Explore.jsx / Explore.css: Global design feed, lightbox inspection, and search.
+  - CommentsPanel.jsx: Threaded critique discussion system.
+  - ExpandableFeedback.jsx: Collapsible markdown reader for deep AI reports.
+
+================================================================================
+7. CORE WORKFLOWS & ENGINE MECHANICS
+================================================================================
+
+7.1 HYBRID AUDIT WORKFLOW
+1. Specification Ingestion:
+   - User uploads a PRD or style specification document (.pdf, .docx, .txt).
+   - Backend extracts text using `pypdf` or `python-docx`.
+2. Screenshot Aggregation:
+   - User uploads 1 to N interface screenshots (PNG, JPG, WebP).
+3. Preset & Focus Configuration:
+   - User toggles audit presets:
+     * WCAG 2.1 Accessibility (Contrast ratios, font readability, tap target sizes).
+     * Visual Hierarchy & Balance (Typographic scales, focal points, whitespace).
+     * Nielsen Usability Heuristics (Error prevention, visibility, recognition).
+     * Microcopy & IA (Call-to-action phrasing, label clarity, density).
+4. Multimodal Analysis:
+   - Backend constructs a structured prompt injecting specification context and UI images.
+   - Evaluates adherence between documented requirements and rendered screenshots.
+5. Structured Output Generation:
+   - Returns a comprehensive evaluation: UI Aesthetics Score (1-10), UX Usability 
+     Score (1-10), Critical Friction Points, and Step-by-Step Remediation Recommendations.
+
+7.2 REPORT GENERATION
+- Using ReportLab / xhtml2pdf, users can click "Download Project Report" to generate 
+  an executive PDF document summarizing all screens, heuristic scores, and actionable fixes.
+
+================================================================================
+8. SECURITY, PRIVACY & COMPLIANCE ARCHITECTURE
+================================================================================
+1. Stateless Authentication:
+   - Protected endpoints require Bearer JWT access tokens with 60-minute expiry.
+   - Refresh tokens enable transparent session re-authentication.
+2. Ownership Isolation:
+   - All ProjectViewSet and DesignViewSet queries filter strictly by `request.user`.
+   - Private projects cannot be retrieved or commented upon by other users.
+3. Safe Data Cleanup (Right to Be Forgotten):
+   - Rather than risky instant buttons, the platform implements a 2-step confirmation 
+     modal requiring explicit confirmation ("DELETE") before wiping all uploaded 
+     assets, media, and generated feedback.
+4. Input Validation & MIME Restrictions:
+   - Strict whitelisting of document formats (.pdf, .docx, .txt) and image formats.
+   - File size limits prevent denial-of-service via large binary uploads.
+
+================================================================================
+9. DEPLOYMENT & INFRASTRUCTURE SPECIFICATION
+================================================================================
+
+9.1 RENDER BLUEPRINT (render.yaml)
+- Web Service (Backend):
+  * Runtime: Python 3.11.9
+  * Root Dir: `backend`
+  * Build Command: `./build.sh` (installs requirements, collects static, runs migrations)
+  * Start Command: `gunicorn backend.wsgi:application`
+  * Required Environment Variables:
+    - PYTHON_VERSION: 3.11.9
+    - DEBUG: "false"
+    - SECRET_KEY: (Auto-generated cryptographic key)
+    - DATABASE_URL: (Supabase connection pooler URI on port 5432)
+    - GROQ_API_KEY: (API key for Groq multimodal inference)
+    - AI_PROVIDER: "groq"
+    - CORS_ALLOW_ALL_ORIGINS: "true"
+    - CSRF_TRUSTED_ORIGINS: "https://*.onrender.com"
+
+- Static Site (Frontend):
+  * Runtime: Static
+  * Root Dir: `frontend`
+  * Build Command: `npm install && npm run build`
+  * Publish Path: `dist`
+  * Rewrite Rule: `/*` -> `/index.html` (Single-Page Application fallback)
+  * Environment Variables:
+    - VITE_BACKEND_URL: `https://uiux-backend-nqeo.onrender.com`
+
+9.2 SUPABASE POSTGRESQL CONFIGURATION
+- Crucial Note: Render instances do not have native IPv6 outbound connectivity.
+  Standard Supabase direct hosts (`db.<project-ref>.supabase.co`) resolve to IPv6 
+  and fail on Render.
+- Solution: The database connection must use the Supabase IPv4 Session Pooler host:
+  `aws-0-<region>.pooler.supabase.com` on port `5432` with user `postgres.<project-ref>`.
+
+================================================================================
+10. REPOSITORY DIRECTORY & FILE INVENTORY
+================================================================================
+
+UIUX Feedback Analyzer Tool/
+│
+├── backend/
+│   ├── backend/
+│   │   ├── __init__.py
+│   │   ├── asgi.py
+│   │   ├── settings.py           # Core settings (Database, JWT, Static, CORS)
+│   │   ├── urls.py               # Root URL configuration + media serving
+│   │   └── wsgi.py               # Production WSGI application
+│   │
+│   ├── feedback_app/
+│   │   ├── __init__.py
+│   │   ├── admin.py              # Django Admin registrations
+│   │   ├── apps.py               # FeedbackAppConfig
+│   │   ├── models.py             # Core relational models
+│   │   ├── hybrid_models.py      # HybridSubmission & HybridScreenshot
+│   │   ├── serializers.py        # DRF ModelSerializers
+│   │   ├── urls.py               # App REST route definitions
+│   │   ├── views.py              # Core viewsets (Projects, Designs, Hybrid)
+│   │   ├── portfolio_views.py    # Public feed, likes, and comment views
+│   │   ├── social_views.py       # Friends and direct messaging views
+│   │   └── services/
+│   │       ├── ai_analyzer.py    # Heuristic evaluation & prompt synthesis
+│   │       ├── document_parser.py# PDF & DOCX extraction logic
+│   │       └── report_generator.py# ReportLab PDF creation logic
+│   │
+│   ├── build.sh                  # Render deployment build script
+│   ├── manage.py                 # Django command-line runner
+│   └── requirements.txt          # Python dependencies
+│
+├── frontend/
+│   ├── public/                   # Static assets & favicon
+│   ├── src/
+│   │   ├── assets/               # Local SVGs & images
+│   │   ├── components/
+│   │   │   ├── CommentsPanel.jsx # Real-time comments drawer
+│   │   │   ├── DesignCard.jsx    # Thumbnail card component
+│   │   │   ├── ErrorBoundary.jsx # React crash safety boundary
+│   │   │   ├── ExpandableFeedback.jsx # Markdown report viewer
+│   │   │   ├── Navbar.jsx        # Floating pill navigation header
+│   │   │   ├── Navbar.css        # Navigation styling & user popover
+│   │   │   └── ProtectedRoute.jsx# Auth route guard
+│   │   │
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx   # Global login state, token refresh, user info
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Auth.css          # Login/Register styling
+│   │   │   ├── Chat.jsx / .css   # Direct messaging page
+│   │   │   ├── Explore.jsx / .css# Public showcase & discovery feed
+│   │   │   ├── Friends.jsx / .css# Social network & friend requests
+│   │   │   ├── Home.jsx / .css   # Executive workspace dashboard
+│   │   │   ├── HybridUpload.jsx / .css # 3-step heuristic audit studio
+│   │   │   ├── Login.jsx         # Sign in page
+│   │   │   ├── Privacy.jsx       # Privacy policy statement
+│   │   │   ├── ProjectDetail.jsx / .css # Screen inspection & feedback report
+│   │   │   ├── PublicProfile.jsx # Public designer portfolio
+│   │   │   ├── PublicProject.jsx # Public project view
+│   │   │   └── Register.jsx      # Create designer account
+│   │   │
+│   │   ├── api.js                # Centralized Axios client & API methods
+│   │   ├── App.jsx               # Router & application root
+│   │   ├── index.css             # Design tokens, variables & typography
+│   │   └── main.jsx              # DOM mount point
+│   │
+│   ├── index.html                # HTML entry point
+│   ├── package.json              # NPM dependencies & scripts
+│   └── vite.config.js            # Vite build configuration
+│
+├── render.yaml                   # Infrastructure-as-code for Render deployment
+├── requirements.txt              # Top-level Python dependency specification
+└── PROJECT_DETAILS.txt           # Complete documentation text file
+================================================================================
+                             END OF SPECIFICATION
+================================================================================
