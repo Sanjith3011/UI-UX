@@ -1,26 +1,51 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Sparkles, FileText, CheckCircle2, X, Plus, ChevronLeft, ArrowRight } from 'lucide-react';
+import {
+    Sparkles,
+    FileText,
+    CheckCircle2,
+    X,
+    Plus,
+    ChevronLeft,
+    ArrowRight,
+    UploadCloud,
+    Sliders,
+    Layers,
+    ShieldCheck,
+    Eye,
+    Zap,
+    AlertCircle,
+    Info,
+    ExternalLink
+} from 'lucide-react';
 import api, { createHybridSubmission, fetchHybridSubmissions } from '../api';
 import ExpandableFeedback from '../components/ExpandableFeedback';
 import './HybridUpload.css';
+
+const FOCUS_PRESETS = [
+    { id: 'wcag', label: 'WCAG 2.1 Accessibility', prompt: 'Evaluate color contrast ratios, screen reader accessibility, touch target sizing, and readability.' },
+    { id: 'hierarchy', label: 'Visual Hierarchy & Balance', prompt: 'Audit typographic scale, focal points, whitespace balance, and scanning affordances.' },
+    { id: 'heuristics', label: 'Nielsen Usability Heuristics', prompt: 'Examine error prevention, system visibility, user control, and consistency standards.' },
+    { id: 'copy', label: 'Microcopy & Information Architecture', prompt: 'Review clarity of labels, form microcopy, call-to-action phrasing, and navigational cognitive load.' },
+];
 
 const HybridUpload = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [newProjectTitle, setNewProjectTitle] = useState('');
-    
+
     const [reportFile, setReportFile] = useState(null);
     const [prompt, setPrompt] = useState('');
     const [screenshots, setScreenshots] = useState([]);
     const [previews, setPreviews] = useState([]);
-    
+
     const [loadingProjects, setLoadingProjects] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [publishToPublicFeed, setPublishToPublicFeed] = useState(true);
     const [statusMessage, setStatusMessage] = useState('');
     const [activeSubmission, setActiveSubmission] = useState(null);
+    const [dragActive, setDragActive] = useState(false);
 
     const reportRef = useRef(null);
     const screenshotsRef = useRef(null);
@@ -29,7 +54,7 @@ const HybridUpload = () => {
         const loadProjects = async () => {
             try {
                 const res = await api.get('projects/');
-                setProjects(res.data);
+                setProjects(res.data || []);
             } catch (err) {
                 console.error('Error fetching projects:', err);
             } finally {
@@ -65,8 +90,7 @@ const HybridUpload = () => {
         return () => clearInterval(interval);
     }, [activeSubmission, selectedProjectId]);
 
-    const handleReportChange = (e) => {
-        const file = e.target.files?.[0];
+    const handleReportChange = (file) => {
         if (!file) return;
         const ext = file.name.split('.').pop().toLowerCase();
         if (!['pdf', 'docx', 'txt', 'doc'].includes(ext)) {
@@ -76,8 +100,8 @@ const HybridUpload = () => {
         setReportFile(file);
     };
 
-    const handleScreenshotsChange = (e) => {
-        const files = Array.from(e.target.files || []);
+    const handleScreenshotsChange = (filesList) => {
+        const files = Array.from(filesList || []);
         if (!files.length) return;
         setScreenshots(prev => [...prev, ...files]);
         const newPreviews = files.map(file => URL.createObjectURL(file));
@@ -93,25 +117,32 @@ const HybridUpload = () => {
         });
     };
 
+    const togglePreset = (presetPrompt) => {
+        if (prompt.includes(presetPrompt)) {
+            setPrompt(prompt.replace(presetPrompt, '').trim());
+        } else {
+            setPrompt(prev => prev ? `${prev}\n\n${presetPrompt}` : presetPrompt);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!reportFile) {
-            alert('Please select a project report document.');
+            alert('Please select a project report or PRD document to analyze.');
             return;
         }
 
         setSubmitting(true);
-        setStatusMessage('Submitting for hybrid analysis...');
+        setStatusMessage('Submitting for heuristic analysis...');
 
         try {
             let targetProjectId = selectedProjectId;
 
-            // If user wants to create a new project
             if (selectedProjectId === '__NEW__') {
-                const title = newProjectTitle.trim() || `Hybrid Project (${new Date().toLocaleDateString()})`;
+                const title = newProjectTitle.trim() || `Design Audit (${new Date().toLocaleDateString()})`;
                 const projRes = await api.post('projects/', {
                     title,
-                    description: 'Created via Hybrid AI Analysis',
+                    description: 'Generated via Hybrid AI Heuristic Evaluation Studio',
                     is_public: publishToPublicFeed,
                 });
                 targetProjectId = projRes.data.id;
@@ -119,7 +150,7 @@ const HybridUpload = () => {
                 try {
                     await api.patch(`projects/${targetProjectId}/visibility/`, { is_public: true });
                 } catch (e) {
-                    // Ignore if already public or permission
+                    // Ignore if already public
                 }
             }
 
@@ -137,9 +168,8 @@ const HybridUpload = () => {
 
             const data = await createHybridSubmission(formData);
             setActiveSubmission(data);
-            setStatusMessage('Submitted! AI is now evaluating your documentation and screenshots...');
+            setStatusMessage('Submitted! AI is evaluating documentation and visual aesthetics...');
 
-            // If attached to a project, let user know or offer redirect
             if (targetProjectId && targetProjectId !== '__STANDALONE__') {
                 setSelectedProjectId(targetProjectId);
             }
@@ -154,97 +184,248 @@ const HybridUpload = () => {
     };
 
     return (
-        <div className="hybrid-upload-page animate-fade-in">
-            <Link to="/" className="back-link">
-                <ChevronLeft size={20} /> Back to Projects
-            </Link>
-
-            <div className="hybrid-upload-header glass-panel">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <Sparkles size={28} style={{ color: 'var(--accent)' }} />
-                    <h1 className="gradient-text" style={{ margin: 0, fontSize: '2rem' }}>
-                        Hybrid UI/UX Project Analysis
-                    </h1>
-                </div>
-                <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '1.05rem', lineHeight: 1.5 }}>
-                    Combine project reports, design requirements documentation (PDF, DOCX, TXT) and interface screenshots for comprehensive heuristic and visual evaluation.
-                </p>
+        <div className="studio-container animate-fade-in">
+            {/* Top Navigation & Breadcrumb */}
+            <div className="studio-topbar">
+                <Link to="/" className="studio-back-link">
+                    <ChevronLeft size={18} />
+                    <span>Back to Workspace</span>
+                </Link>
+                <span className="studio-badge">
+                    <Zap size={13} /> Heuristic Audit Studio
+                </span>
             </div>
 
-            {/* Active Analysis Result */}
+            {/* Header */}
+            <header className="studio-header glass-panel">
+                <div className="studio-header-icon-wrap">
+                    <Sparkles size={28} />
+                </div>
+                <div>
+                    <h1 className="studio-title">
+                        Hybrid Design & Spec Audit
+                    </h1>
+                    <p className="studio-subtitle">
+                        Cross-correlate interface documentation (PRDs, design tokens, style guides) against visual UI screenshots for multi-modal heuristic analysis.
+                    </p>
+                </div>
+            </header>
+
+            {/* Evaluation Result View */}
             {activeSubmission && activeSubmission.status === 'done' && activeSubmission.result && (
-                <div className="hybrid-result-card glass-panel animate-fade-in" style={{ marginBottom: '32px', padding: '28px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px', marginBottom: '18px' }}>
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
-                                <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Hybrid AI Evaluation Results</h2>
+                <div className="studio-result-card glass-panel animate-scale-in">
+                    <div className="result-card-header">
+                        <div className="result-status-title">
+                            <div className="result-check-icon">
+                                <CheckCircle2 size={24} />
                             </div>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Submission #{activeSubmission.id}</span>
+                            <div>
+                                <h2>Audit Findings & Quality Score</h2>
+                                <span className="result-subtext">Submission ID #{activeSubmission.id} • Heuristic Benchmark Report</span>
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                            <div className="score-card ui-score" style={{ padding: '8px 16px', textAlign: 'center' }}>
-                                <span className="score-label" style={{ fontSize: '0.75rem' }}>UI Score</span>
-                                <span className="score-value" style={{ fontSize: '1.4rem' }}>{activeSubmission.result.ui_score ?? 'N/A'}<small>/10</small></span>
+
+                        <div className="result-scores-group">
+                            <div className="studio-score-pill ui-pill">
+                                <span className="score-title">UI Aesthetics</span>
+                                <span className="score-num">{activeSubmission.result.ui_score ?? 'N/A'}<small>/10</small></span>
                             </div>
-                            <div className="score-card ux-score" style={{ padding: '8px 16px', textAlign: 'center' }}>
-                                <span className="score-label" style={{ fontSize: '0.75rem' }}>UX Score</span>
-                                <span className="score-value" style={{ fontSize: '1.4rem' }}>{activeSubmission.result.ux_score ?? 'N/A'}<small>/10</small></span>
+                            <div className="studio-score-pill ux-pill">
+                                <span className="score-title">UX Flow</span>
+                                <span className="score-num">{activeSubmission.result.ux_score ?? 'N/A'}<small>/10</small></span>
                             </div>
+
                             {activeSubmission.project && (
                                 <Link
                                     to={`/project/${activeSubmission.project}`}
-                                    className="glass-button"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', marginLeft: '8px' }}
+                                    className="glass-button open-project-btn"
                                 >
-                                    Open Project <ArrowRight size={16} />
+                                    <span>Open Project</span>
+                                    <ArrowRight size={16} />
                                 </Link>
                             )}
                         </div>
                     </div>
-                    <ExpandableFeedback text={activeSubmission.result.raw_analysis} />
+
+                    <div className="result-feedback-body">
+                        <ExpandableFeedback text={activeSubmission.result.raw_analysis} />
+                    </div>
                 </div>
             )}
 
-            {/* In Progress Status */}
+            {/* In-Progress Evaluation Card */}
             {activeSubmission && (activeSubmission.status === 'queued' || activeSubmission.status === 'processing') && (
-                <div className="hybrid-progress-card glass-panel animate-fade-in" style={{ marginBottom: '32px', padding: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                        <Sparkles className="spin-icon" size={24} style={{ color: 'var(--accent)', margin: 0 }} />
-                        <h3 style={{ margin: 0 }}>AI Hybrid Analysis In Progress...</h3>
+                <div className="studio-processing-card glass-panel animate-fade-in">
+                    <div className="processing-header">
+                        <div className="processing-spinner-wrap">
+                            <Sparkles size={22} className="spin-icon" />
+                        </div>
+                        <div>
+                            <h3>Evaluating Design Artifacts</h3>
+                            <p>Correlating PRD requirements with UI screenshot layouts...</p>
+                        </div>
                     </div>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
-                        The AI is extracting text from your project report and performing heuristic evaluations on your uploaded screenshots. This usually takes 15–30 seconds.
-                    </p>
-                    <div className="archive-progress-bar">
-                        <div className="archive-progress-bar-fill" style={{ width: activeSubmission.status === 'processing' ? '75%' : '35%' }} />
+
+                    <div className="processing-progress-bar">
+                        <div
+                            className="processing-progress-fill"
+                            style={{ width: activeSubmission.status === 'processing' ? '70%' : '30%' }}
+                        />
+                    </div>
+
+                    <div className="processing-steps-row">
+                        <span className="step-indicator done">✓ Document Parser</span>
+                        <span className={`step-indicator ${activeSubmission.status === 'processing' ? 'active' : ''}`}>
+                            Visual Contrast & Layout Scan
+                        </span>
+                        <span className="step-indicator">Remediation Matrix</span>
                     </div>
                 </div>
             )}
 
-            {/* Upload Form */}
-            <div className="hybrid-upload-card glass-panel" style={{ padding: '32px' }}>
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {/* Project Selector */}
-                    <div className="form-group">
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                            Target Project <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400 }}>(Attach feedback to a project)</span>
-                        </label>
+            {/* 3-Step Audit Studio Form */}
+            <form onSubmit={handleSubmit} className="studio-form glass-panel">
+                {/* Step 1: Document Upload */}
+                <div className="studio-step-section">
+                    <div className="step-label-row">
+                        <span className="step-number">01</span>
+                        <div>
+                            <h3 className="step-heading">Specification Document (PRD / Guideline) *</h3>
+                            <p className="step-desc">Upload design brief, feature specs, or design system tokens (PDF, DOCX, TXT).</p>
+                        </div>
+                    </div>
+
+                    {!reportFile ? (
+                        <div
+                            className={`studio-dropzone ${dragActive ? 'drag-active' : ''}`}
+                            onClick={() => reportRef.current?.click()}
+                            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                            onDragLeave={() => setDragActive(false)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setDragActive(false);
+                                if (e.dataTransfer.files?.[0]) handleReportChange(e.dataTransfer.files[0]);
+                            }}
+                        >
+                            <input
+                                type="file"
+                                ref={reportRef}
+                                onChange={(e) => handleReportChange(e.target.files?.[0])}
+                                accept=".pdf,.docx,.txt,.doc"
+                                style={{ display: 'none' }}
+                            />
+                            <div className="dropzone-icon">
+                                <FileText size={38} />
+                            </div>
+                            <span className="dropzone-title">Click to upload specification or drag & drop</span>
+                            <span className="dropzone-sub">PDF, DOCX, or TXT up to 25MB</span>
+                        </div>
+                    ) : (
+                        <div className="studio-file-selected glass-panel">
+                            <div className="file-info-col">
+                                <div className="file-icon-badge">
+                                    <FileText size={20} />
+                                </div>
+                                <div>
+                                    <span className="file-name">{reportFile.name}</span>
+                                    <span className="file-size">{(reportFile.size / 1024).toFixed(1)} KB • Attached</span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className="file-remove-btn"
+                                onClick={() => {
+                                    setReportFile(null);
+                                    if (reportRef.current) reportRef.current.value = '';
+                                }}
+                            >
+                                <X size={16} />
+                                <span>Replace</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Step 2: UI Screenshots */}
+                <div className="studio-step-section">
+                    <div className="step-label-row">
+                        <span className="step-number">02</span>
+                        <div>
+                            <h3 className="step-heading">UI Interfaces & Screenshots</h3>
+                            <p className="step-desc">Figma exports, mockups, or responsive mobile/desktop screenshots.</p>
+                        </div>
+                    </div>
+
+                    <input
+                        type="file"
+                        ref={screenshotsRef}
+                        onChange={(e) => handleScreenshotsChange(e.target.files)}
+                        accept="image/*"
+                        multiple
+                        style={{ display: 'none' }}
+                    />
+
+                    {previews.length > 0 && (
+                        <div className="studio-previews-grid">
+                            {previews.map((previewUrl, idx) => (
+                                <div key={idx} className="preview-card glass-panel">
+                                    <img src={previewUrl} alt={`UI Screen ${idx + 1}`} className="preview-img" />
+                                    <span className="preview-idx">Screen {idx + 1}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeScreenshot(idx)}
+                                        className="preview-remove-btn"
+                                        title="Remove screenshot"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                            <button
+                                type="button"
+                                className="preview-add-more glass-panel"
+                                onClick={() => screenshotsRef.current?.click()}
+                            >
+                                <Plus size={22} />
+                                <span>Add Screens</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {previews.length === 0 && (
+                        <div
+                            className="studio-dropzone screenshots-dropzone"
+                            onClick={() => screenshotsRef.current?.click()}
+                        >
+                            <div className="dropzone-icon">
+                                <Layers size={36} />
+                            </div>
+                            <span className="dropzone-title">Upload UI Screens & Mockups</span>
+                            <span className="dropzone-sub">Select multiple PNG, JPG, or WebP files</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Step 3: Audit Parameters & Project Scope */}
+                <div className="studio-step-section">
+                    <div className="step-label-row">
+                        <span className="step-number">03</span>
+                        <div>
+                            <h3 className="step-heading">Audit Scope & Destination</h3>
+                            <p className="step-desc">Configure target project, evaluation guidelines, and showcase visibility.</p>
+                        </div>
+                    </div>
+
+                    {/* Target project selector */}
+                    <div className="studio-field-group">
+                        <label className="studio-label">Destination Project</label>
                         <select
                             value={selectedProjectId}
                             onChange={(e) => setSelectedProjectId(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '12px 14px',
-                                borderRadius: '8px',
-                                background: '#1e1e2f',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                color: '#fff',
-                                fontSize: '0.95rem'
-                            }}
+                            className="studio-select"
                         >
-                            <option value="">-- Standalone Evaluation (No Project) --</option>
-                            <option value="__NEW__">+ Create a New Project for This Submission</option>
+                            <option value="">-- Quick Heuristic Scan (No Dedicated Project) --</option>
+                            <option value="__NEW__">+ Create a New Project Workspace for This Audit</option>
                             {projects.map((p) => (
                                 <option key={p.id} value={p.id}>
                                     {p.title}
@@ -254,227 +435,94 @@ const HybridUpload = () => {
                     </div>
 
                     {selectedProjectId === '__NEW__' && (
-                        <div className="form-group animate-fade-in">
-                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                                New Project Title
-                            </label>
+                        <div className="studio-field-group animate-scale-in">
+                            <label className="studio-label">New Project Title</label>
                             <input
                                 type="text"
                                 value={newProjectTitle}
                                 onChange={(e) => setNewProjectTitle(e.target.value)}
-                                placeholder="e.g., E-Commerce Mobile App Redesign"
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 14px',
-                                    borderRadius: '8px',
-                                    background: 'rgba(255, 255, 255, 0.04)',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                    color: '#fff',
-                                    fontSize: '0.95rem'
-                                }}
+                                placeholder="e.g. Design System V2 Redesign Audit"
+                                className="studio-input"
                             />
                         </div>
                     )}
 
-                    {/* Report File Input */}
-                    <div className="form-group">
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                            Project Documentation / Report <span style={{ color: 'var(--accent)' }}>*</span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '8px' }}>
-                                (PDF, DOCX, or TXT)
-                            </span>
-                        </label>
-
-                        {!reportFile ? (
-                            <div
-                                className="report-dropzone glass-panel"
-                                onClick={() => reportRef.current?.click()}
-                                style={{
-                                    padding: '32px',
-                                    border: '2px dashed rgba(255, 255, 255, 0.25)',
-                                    borderRadius: '12px',
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    background: 'rgba(255, 255, 255, 0.02)',
-                                    transition: 'all 0.2s ease',
-                                }}
-                            >
-                                <input
-                                    type="file"
-                                    ref={reportRef}
-                                    onChange={handleReportChange}
-                                    accept=".pdf,.docx,.txt,.doc"
-                                    style={{ display: 'none' }}
-                                />
-                                <FileText size={42} style={{ color: 'var(--accent)', marginBottom: '10px' }} />
-                                <p style={{ margin: '0 0 6px 0', fontWeight: 500, fontSize: '1.05rem' }}>
-                                    Click or drag project report here
-                                </p>
-                                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                    Supports PDF, Word (.docx), or plain text documents
-                                </span>
-                            </div>
-                        ) : (
-                            <div className="file-badge glass-panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.35)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <CheckCircle2 size={22} style={{ color: 'var(--success)' }} />
-                                    <div>
-                                        <div style={{ fontWeight: 600 }}>{reportFile.name}</div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(reportFile.size / 1024).toFixed(1)} KB</div>
-                                    </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => { setReportFile(null); if (reportRef.current) reportRef.current.value = ''; }}
-                                    className="glass-button"
-                                    style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-                                >
-                                    <X size={16} /> Remove
-                                </button>
-                            </div>
-                        )}
+                    {/* Presets */}
+                    <div className="studio-field-group">
+                        <label className="studio-label">Audit Focus Presets</label>
+                        <div className="presets-chips-row">
+                            {FOCUS_PRESETS.map((preset) => {
+                                const isSelected = prompt.includes(preset.prompt);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={preset.id}
+                                        className={`preset-chip ${isSelected ? 'active' : ''}`}
+                                        onClick={() => togglePreset(preset.prompt)}
+                                    >
+                                        <ShieldCheck size={14} />
+                                        <span>{preset.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
-                    {/* Custom Prompt */}
-                    <div className="form-group">
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                            Review Focus & Instructions <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400 }}>(Optional)</span>
-                        </label>
+                    {/* Custom prompt */}
+                    <div className="studio-field-group">
+                        <label className="studio-label">Custom Audit Directives (Optional)</label>
                         <textarea
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
-                            placeholder="What specific aspects should the AI focus on? (e.g. accessibility, visual consistency, information architecture, mobile layout...)"
+                            placeholder="Add any specific design criteria, brand guidelines, or critical user journeys..."
                             rows={3}
-                            style={{
-                                width: '100%',
-                                padding: '12px 14px',
-                                borderRadius: '8px',
-                                background: 'rgba(255, 255, 255, 0.04)',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                color: '#fff',
-                                fontFamily: 'inherit',
-                                fontSize: '0.95rem',
-                                resize: 'vertical',
-                            }}
+                            className="studio-textarea"
                         />
                     </div>
 
-                    {/* UI Screenshots Multi-upload */}
-                    <div className="form-group">
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                            UI Interface Screenshots <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400 }}>(Optional, select multiple)</span>
-                        </label>
-                        <input
-                            type="file"
-                            ref={screenshotsRef}
-                            onChange={handleScreenshotsChange}
-                            accept="image/*"
-                            multiple
-                            style={{ display: 'none' }}
-                        />
-
-                        {previews.length > 0 && (
-                            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                                {previews.map((previewUrl, idx) => (
-                                    <div key={idx} style={{ position: 'relative', width: '120px', height: '90px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
-                                        <img src={previewUrl} alt={`Screenshot ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        <button
-                                            type="button"
-                                            onClick={() => removeScreenshot(idx)}
-                                            style={{
-                                                position: 'absolute',
-                                                top: '4px',
-                                                right: '4px',
-                                                background: 'rgba(0,0,0,0.7)',
-                                                color: '#fff',
-                                                border: 'none',
-                                                borderRadius: '50%',
-                                                width: '22px',
-                                                height: '22px',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                            title="Remove"
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={() => screenshotsRef.current?.click()}
-                            className="glass-button"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}
-                        >
-                            <Plus size={16} /> {screenshots.length > 0 ? 'Add More Screenshots' : 'Upload UI Screenshots'}
-                        </button>
-                    </div>
-
-                    {/* Public Feed Publish Toggle */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', background: 'rgba(99, 102, 241, 0.08)', padding: '12px 16px', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                    {/* Showcase visibility checkbox */}
+                    <label className="studio-checkbox-card">
                         <input
                             type="checkbox"
-                            id="publishToPublicFeed"
                             checked={publishToPublicFeed}
                             onChange={(e) => setPublishToPublicFeed(e.target.checked)}
-                            style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                            className="studio-checkbox"
                         />
-                        <label htmlFor="publishToPublicFeed" style={{ color: '#e2e8f0', fontSize: '0.92rem', cursor: 'pointer', margin: 0 }}>
-                            <strong>Publish to Public Feed</strong> — share evaluated UI designs publicly for community feedback and likes.
-                        </label>
-                    </div>
+                        <div className="checkbox-text-col">
+                            <strong>Publish to Community Showcase</strong>
+                            <span>Allow fellow designers to view the audit findings, like, and leave feedback.</span>
+                        </div>
+                    </label>
+                </div>
 
-                    {/* Submit Bar */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px', marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
-                        {statusMessage && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>{statusMessage}</span>
-                                {activeSubmission?.status === 'done' && (
-                                    <Link to="/explore" className="glass-button" style={{ padding: '6px 12px', fontSize: '0.85rem', color: '#fff' }}>
-                                        View on Public Feed →
-                                    </Link>
-                                )}
-                            </div>
+                {/* Submit Row */}
+                <div className="studio-submit-bar">
+                    {statusMessage && (
+                        <div className="studio-status-msg">
+                            <Info size={16} />
+                            <span>{statusMessage}</span>
+                        </div>
+                    )}
+
+                    <button
+                        type="submit"
+                        disabled={submitting || !reportFile}
+                        className="glass-button studio-submit-btn"
+                    >
+                        {submitting ? (
+                            <>
+                                <Sparkles className="spin-icon" size={18} />
+                                <span>Running AI Audit Engine...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles size={18} />
+                                <span>Run Comprehensive AI Audit</span>
+                            </>
                         )}
-                        <button
-                            type="submit"
-                            disabled={submitting || !reportFile}
-                            className="glass-button"
-                            style={{
-                                background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                                color: '#fff',
-                                fontWeight: 600,
-                                padding: '14px 30px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                cursor: submitting || !reportFile ? 'not-allowed' : 'pointer',
-                                opacity: submitting || !reportFile ? 0.6 : 1,
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '1rem',
-                            }}
-                        >
-                            {submitting ? (
-                                <>
-                                    <Sparkles className="spin-icon" size={20} style={{ margin: 0 }} />
-                                    Submitting to AI...
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles size={20} />
-                                    Run Hybrid AI Analysis
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </div>
+                    </button>
+                </div>
+            </form>
         </div>
     );
 };

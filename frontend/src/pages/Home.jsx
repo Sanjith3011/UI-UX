@@ -1,56 +1,68 @@
-// Import React hooks for managing state and side-effects
-import { useState, useEffect, useContext } from 'react';
-// Import routing components to link between pages and programmatically navigate
+import { useState, useEffect, useContext, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-// Import specific icons from the lucide-react library for the UI
-import { Plus, Folder, Trash2, UploadCloud, MessageSquare, Heart, Sparkles, AlertCircle } from 'lucide-react';
-// Import our custom configured Axios instance to make API calls to the backend
+import {
+    Plus,
+    Folder,
+    Trash2,
+    UploadCloud,
+    MessageSquare,
+    Heart,
+    Sparkles,
+    AlertCircle,
+    Search,
+    Globe,
+    Lock,
+    ArrowRight,
+    SlidersHorizontal,
+    CheckCircle,
+    FileCheck2,
+    Layers,
+    Activity,
+    ExternalLink,
+    X
+} from 'lucide-react';
 import api, { fetchFeed, toggleDesignLike, MEDIA_BASE } from '../api';
 import AuthContext from '../context/AuthContext';
-// Import the component-specific CSS file for styling
 import './Home.css';
 
-// Define the Home component, which serves as the main dashboard for logged-in users
 const Home = () => {
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
 
-    // State to hold the list of projects fetched from the backend
+    // Projects state
     const [projects, setProjects] = useState([]);
-    // State to track if data is currently being loaded (used to show a loading spinner/message)
     const [loading, setLoading] = useState(true);
-    // State to control the visibility of the "Create Project" modal popup
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    // State to bind to the "New Project Title" input field in the modal
-    const [newTitle, setNewTitle] = useState('');
-    // State to bind to the "New Project Description" textarea in the modal
-    const [newDescription, setNewDescription] = useState('');
 
-    // Social feed states
+    // Filter & search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterTab, setFilterTab] = useState('all'); // 'all' | 'public' | 'private'
+
+    // Create Project modal
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newTitle, setNewTitle] = useState('');
+    const [newDescription, setNewDescription] = useState('');
+    const [creatingProject, setCreatingProject] = useState(false);
+
+    // Delete Project confirmation modal
+    const [projectToDelete, setProjectToDelete] = useState(null);
+    const [deletingProject, setDeletingProject] = useState(false);
+
+    // Feed / Showcase highlights
     const [feedItems, setFeedItems] = useState([]);
     const [loadingFeed, setLoadingFeed] = useState(true);
 
-    // Initialize the navigation hook to redirect users after creating a project
-    const navigate = useNavigate();
-
-    // useEffect hook to run code when the component first mounts (loads on screen)
     useEffect(() => {
-        // Call the functions to fetch projects and feed data immediately when the page loads
         fetchProjects();
         fetchFeedData();
-    }, []); // The empty dependency array [] means this runs exactly once on mount
+    }, []);
 
-    // Async function to request the user's projects from the Django backend
     const fetchProjects = async () => {
         try {
-            // Make a GET request to the /api/projects/ endpoint
             const response = await api.get('projects/');
-            // Update the projects state with the array of project data returned by the API
-            setProjects(response.data);
+            setProjects(response.data || []);
         } catch (error) {
-            // Log any network or server errors to the console
             console.error('Error fetching projects:', error);
         } finally {
-            // Regardless of success or failure, stop showing the loading state
             setLoading(false);
         }
     };
@@ -59,7 +71,7 @@ const Home = () => {
         try {
             setLoadingFeed(true);
             const data = await fetchFeed();
-            setFeedItems(data);
+            setFeedItems(data || []);
         } catch (error) {
             console.error('Error fetching feed data:', error);
         } finally {
@@ -67,78 +79,42 @@ const Home = () => {
         }
     };
 
-    // Async function to handle the submission of the "Create Project" form
     const handleCreateProject = async (e) => {
-        // Prevent the default HTML form submission behavior (which refreshes the whole page)
         e.preventDefault();
-
-        // Validation: Ensure the title isn't just empty spaces before sending a request
         if (!newTitle.trim()) return;
 
+        setCreatingProject(true);
         try {
-            // Make a POST request to create a new project with the form data
             const response = await api.post('projects/', {
-                title: newTitle,
-                description: newDescription
+                title: newTitle.trim(),
+                description: newDescription.trim()
             });
 
-            // Optimistically update the local state: add the newly created project to the beginning of the list
             setProjects([response.data, ...projects]);
-
-            // Close the creation modal
             setIsModalOpen(false);
-
-            // Reset the form fields back to empty for the next time the modal is opened
             setNewTitle('');
             setNewDescription('');
-
-            // Automatically redirect the user to the newly created project's detail page
             navigate(`/project/${response.data.id}`);
         } catch (error) {
-            // Log any errors that occur during project creation
             console.error('Error creating project:', error);
+            alert('Failed to create project. Please try again.');
+        } finally {
+            setCreatingProject(false);
         }
     };
 
-    // Async function to handle deleting an existing project
-    const handleDeleteProject = async (id, e) => {
-        // Prevent the click event from "bubbling up" to the parent Link component,
-        // which would accidentally navigate the user to the project they're trying to delete
-        e.preventDefault();
-
-        // Show a standard browser confirmation dialog before acting
-        if (!window.confirm('Are you sure you want to delete this project?')) return;
-
+    const confirmDeleteProject = async () => {
+        if (!projectToDelete) return;
+        setDeletingProject(true);
         try {
-            // Make a DELETE request to the specific project's API endpoint
-            await api.delete(`projects/${id}/`);
-
-            // Update the local state by filtering out the project that was just deleted,
-            // removing it from the UI immediately without needing to refresh the page
-            setProjects(projects.filter(p => p.id !== id));
+            await api.delete(`projects/${projectToDelete.id}/`);
+            setProjects(projects.filter(p => p.id !== projectToDelete.id));
+            setProjectToDelete(null);
         } catch (error) {
-            // Log any errors that occur during deletion
             console.error('Error deleting project:', error);
-        }
-    };
-
-    // Helper to get matching icons and styling for activity feed items
-    const renderFeedIcon = (type) => {
-        switch (type) {
-            case 'project_created':
-                return <Folder size={16} className="feed-item-icon project-icon" />;
-            case 'design_published':
-                return <Sparkles size={16} className="feed-item-icon project-icon" />;
-            case 'hybrid_uploaded':
-                return <UploadCloud size={16} className="feed-item-icon zip-icon" />;
-            case 'zip_uploaded':
-                return <UploadCloud size={16} className="feed-item-icon zip-icon" />;
-            case 'comment_added':
-                return <MessageSquare size={16} className="feed-item-icon comment-icon" />;
-            case 'design_liked':
-                return <Heart size={16} className="feed-item-icon like-icon" />;
-            default:
-                return <Sparkles size={16} className="feed-item-icon default-icon" />;
+            alert('Failed to delete project.');
+        } finally {
+            setDeletingProject(false);
         }
     };
 
@@ -172,17 +148,6 @@ const Home = () => {
             }));
         } catch (err) {
             console.error('Failed to toggle like:', err);
-            setFeedItems(prev => prev.map(item => {
-                if (item.design_id === designId) {
-                    const nextLiked = !item.is_liked;
-                    return {
-                        ...item,
-                        is_liked: nextLiked,
-                        like_count: Math.max(0, (item.like_count || 0) + (nextLiked ? 1 : -1))
-                    };
-                }
-                return item;
-            }));
         }
     };
 
@@ -190,224 +155,440 @@ const Home = () => {
         if (!item.project_id) return '/';
         if (item.owner_username === user?.username) {
             return `/project/${item.project_id}`;
-        } else {
-            return `/portfolio/${item.owner_username}/project/${item.project_id}`;
         }
+        return `/portfolio/${item.owner_username}/project/${item.project_id}`;
     };
 
-    // The JSX layout rendered by the component
-    return (
-        // Main container with an animation class for a smooth fade-in effect
-        <div className="home-container animate-fade-in">
-            {/* Header section containing the title and the "New Project" button */}
-            <div className="home-header">
-                <div>
-                    <h1 className="home-title">Projects Dashboard</h1>
-                    <p className="home-subtitle">Manage and analyze your UI/UX designs</p>
-                </div>
-                {/* Button that opens the modal when clicked */}
-                <button className="glass-button create-btn" onClick={() => setIsModalOpen(true)}>
-                    <Plus size={20} />
-                    New Project
-                </button>
-            </div>
+    // Filtered projects
+    const filteredProjects = useMemo(() => {
+        return projects.filter(p => {
+            const matchesQuery = !searchQuery.trim() ||
+                p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-            {/* Split layout: Dashboard main section and Activity feed */}
-            <div className="home-split-layout">
-                {/* Left side: user's projects list */}
-                <div className="dashboard-main-col">
-                    {loading ? (
-                        // If currently fetching data, show a loading message
-                        <div className="loading-state">Loading projects...</div>
-                    ) : projects.length === 0 ? (
-                        // If data is loaded but the user has 0 projects, show a friendly empty state
-                        <div className="empty-state glass-panel">
-                            <Folder size={48} className="empty-icon" />
-                            <h3>No projects yet</h3>
-                            <p>Create your first project to start analyzing designs.</p>
+            if (!matchesQuery) return false;
+
+            if (filterTab === 'public') return p.is_public;
+            if (filterTab === 'private') return !p.is_public;
+            return true;
+        });
+    }, [projects, searchQuery, filterTab]);
+
+    // Computed metrics
+    const totalDesignsCount = useMemo(() => {
+        return projects.reduce((acc, p) => acc + (p.designs?.length || 0), 0);
+    }, [projects]);
+
+    const publicProjectsCount = useMemo(() => {
+        return projects.filter(p => p.is_public).length;
+    }, [projects]);
+
+    // Showcase spotlight items (top 3 designs with images)
+    const spotlightDesigns = useMemo(() => {
+        return feedItems
+            .filter(item => item.type === 'design_published' && item.image)
+            .slice(0, 3);
+    }, [feedItems]);
+
+    return (
+        <div className="home-dashboard animate-fade-in">
+            {/* Top Executive Header */}
+            <header className="workspace-hero">
+                <div className="workspace-hero-content">
+                    <div className="workspace-hero-greeting">
+                        <span className="workspace-badge">
+                            <Activity size={13} className="badge-pulse-icon" /> Workspace Active
+                        </span>
+                        <h1 className="workspace-title">
+                            Welcome, <span className="gradient-text">{user?.username || 'Designer'}</span>
+                        </h1>
+                        <p className="workspace-subtitle">
+                            Monitor heuristic audits, design system compliance, and team critique in real time.
+                        </p>
+                    </div>
+
+                    <div className="workspace-hero-actions">
+                        <Link to="/hybrid-upload" className="glass-button hero-audit-cta">
+                            <UploadCloud size={18} />
+                            Launch Audit Studio
+                        </Link>
+                        <button
+                            className="workspace-secondary-btn"
+                            onClick={() => setIsModalOpen(true)}
+                        >
+                            <Plus size={18} />
+                            New Project
+                        </button>
+                    </div>
+                </div>
+
+                {/* Key Metrics Row */}
+                <div className="workspace-metrics-row">
+                    <div className="metric-card glass-panel">
+                        <div className="metric-icon-wrap metric-blue">
+                            <Folder size={20} />
                         </div>
-                    ) : (
-                        // If data is loaded and projects exist, render them in a CSS grid
-                        <div className="project-grid">
-                            {/* Iterate over the projects array and render a card for each one */}
-                            {projects.map((project) => (
-                                // Each card is a Link, so clicking anywhere on the card navigates to its detail page
-                                <Link to={`/project/${project.id}`} key={project.id} className="project-card glass-panel">
-                                    {/* Card Header: Title, Date, and Delete Button */}
-                                    <div className="project-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div>
-                                            <h3>{project.title}</h3>
-                                            {/* Format the raw ISO date string into a readable local date format */}
-                                            <span className="project-date">
-                                                {new Date(project.created_at).toLocaleDateString()}
-                                            </span>
+                        <div className="metric-data">
+                            <span className="metric-label">Total Projects</span>
+                            <span className="metric-value">{projects.length}</span>
+                        </div>
+                    </div>
+
+                    <div className="metric-card glass-panel">
+                        <div className="metric-icon-wrap metric-purple">
+                            <Layers size={20} />
+                        </div>
+                        <div className="metric-data">
+                            <span className="metric-label">Audited Screens</span>
+                            <span className="metric-value">{totalDesignsCount}</span>
+                        </div>
+                    </div>
+
+                    <div className="metric-card glass-panel">
+                        <div className="metric-icon-wrap metric-emerald">
+                            <Globe size={20} />
+                        </div>
+                        <div className="metric-data">
+                            <span className="metric-label">Public Portfolios</span>
+                            <span className="metric-value">{publicProjectsCount}</span>
+                        </div>
+                    </div>
+
+                    <div className="metric-card glass-panel">
+                        <div className="metric-icon-wrap metric-amber">
+                            <Sparkles size={20} />
+                        </div>
+                        <div className="metric-data">
+                            <span className="metric-label">Audit Engine</span>
+                            <span className="metric-value-status">
+                                <span className="status-dot-pulse" /> Heuristic v2.5
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Main Projects Section */}
+            <section className="projects-workspace-section">
+                {/* Toolbar */}
+                <div className="projects-toolbar">
+                    <div className="projects-search-bar glass-panel">
+                        <Search size={18} className="search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Filter projects by title or description..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="projects-search-input"
+                        />
+                        {searchQuery && (
+                            <button
+                                className="search-clear-btn"
+                                onClick={() => setSearchQuery('')}
+                                aria-label="Clear search"
+                            >
+                                <X size={15} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="projects-filter-pills">
+                        <button
+                            className={`filter-pill ${filterTab === 'all' ? 'active' : ''}`}
+                            onClick={() => setFilterTab('all')}
+                        >
+                            All ({projects.length})
+                        </button>
+                        <button
+                            className={`filter-pill ${filterTab === 'public' ? 'active' : ''}`}
+                            onClick={() => setFilterTab('public')}
+                        >
+                            Public ({publicProjectsCount})
+                        </button>
+                        <button
+                            className={`filter-pill ${filterTab === 'private' ? 'active' : ''}`}
+                            onClick={() => setFilterTab('private')}
+                        >
+                            Private ({projects.length - publicProjectsCount})
+                        </button>
+                    </div>
+                </div>
+
+                {/* Projects Grid */}
+                {loading ? (
+                    <div className="projects-loading-container">
+                        <div className="app-loading-spinner" />
+                        <p className="loading-hint">Loading your workspace projects...</p>
+                    </div>
+                ) : filteredProjects.length === 0 ? (
+                    <div className="projects-empty-card glass-panel animate-scale-in">
+                        <div className="empty-card-icon-wrap">
+                            <Folder size={36} />
+                        </div>
+                        <h3>
+                            {searchQuery ? 'No matching projects found' : 'Your workspace is empty'}
+                        </h3>
+                        <p>
+                            {searchQuery
+                                ? `No projects match "${searchQuery}". Try a different keyword.`
+                                : 'Create your first project or run a hybrid audit with design specs & screenshots.'}
+                        </p>
+                        <div className="empty-card-actions">
+                            {searchQuery ? (
+                                <button className="glass-button" onClick={() => setSearchQuery('')}>
+                                    Clear Filter
+                                </button>
+                            ) : (
+                                <>
+                                    <button className="glass-button" onClick={() => setIsModalOpen(true)}>
+                                        <Plus size={16} /> Create Project
+                                    </button>
+                                    <Link to="/hybrid-upload" className="workspace-secondary-btn">
+                                        <UploadCloud size={16} /> Run Heuristic Audit
+                                    </Link>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="projects-grid">
+                        {filteredProjects.map((project) => (
+                            <div key={project.id} className="project-card-container glass-panel">
+                                <Link to={`/project/${project.id}`} className="project-card-click-area">
+                                    <div className="project-card-top">
+                                        <div className="project-card-badge">
+                                            <Folder size={20} />
                                         </div>
-                                        {/* Delete button */}
+                                        <span className={`project-visibility-pill ${project.is_public ? 'public' : 'private'}`}>
+                                            {project.is_public ? (
+                                                <>
+                                                    <Globe size={12} /> Public
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Lock size={12} /> Private
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
+
+                                    <h3 className="project-card-title">{project.title}</h3>
+                                    <p className="project-card-desc">
+                                        {project.description || 'No description provided for this design project.'}
+                                    </p>
+                                </Link>
+
+                                <div className="project-card-bottom">
+                                    <div className="project-meta-info">
+                                        <span className="project-date">
+                                            {new Date(project.created_at).toLocaleDateString(undefined, {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric'
+                                            })}
+                                        </span>
+                                        <span className="project-assets-pill">
+                                            {project.designs?.length || 0} screens
+                                        </span>
+                                    </div>
+
+                                    <div className="project-card-actions">
                                         <button
-                                            className="glass-button"
-                                            style={{ padding: '6px', color: 'var(--error)' }}
-                                            onClick={(e) => handleDeleteProject(project.id, e)}
-                                            title="Delete Project"
+                                            className="project-delete-trigger"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setProjectToDelete(project);
+                                            }}
+                                            title="Delete project"
                                         >
                                             <Trash2 size={16} />
                                         </button>
+                                        <Link
+                                            to={`/project/${project.id}`}
+                                            className="project-open-link"
+                                            title="Open audit project"
+                                        >
+                                            <span>Open</span>
+                                            <ArrowRight size={14} />
+                                        </Link>
                                     </div>
-                                    {/* Card Body: Show the description or a fallback text if it's empty */}
-                                    <p className="project-desc">{project.description || 'No description provided.'}</p>
-                                    {/* Card Footer: Show how many designs are inside the project */}
-                                    <div className="project-footer">
-                                        <span className="design-count">
-                                            {/* Use optional chaining (?.) just in case the designs array is missing */}
-                                            {project.designs?.length || 0} designs
-                                        </span>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
 
-                {/* Right side: General Activity Feed */}
-                <div className="dashboard-feed-col glass-panel">
-                    <div className="feed-header" style={{ justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Sparkles size={18} className="feed-header-icon" />
-                            <h2>Global Design Feed</h2>
+            {/* Community Spotlight Section */}
+            {spotlightDesigns.length > 0 && (
+                <section className="community-spotlight-section">
+                    <div className="spotlight-header">
+                        <div>
+                            <div className="spotlight-badge">
+                                <Sparkles size={14} /> Community Highlights
+                            </div>
+                            <h2 className="spotlight-title">Featured Interface Audits</h2>
                         </div>
-                        <Link to="/explore" className="feed-view-all-link" style={{ fontSize: '0.8rem', color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
-                            Explore Feed →
+                        <Link to="/explore" className="spotlight-view-all">
+                            <span>Browse Showcase</span>
+                            <ArrowRight size={15} />
                         </Link>
                     </div>
 
-                    <div className="feed-content-scroll">
-                        {loadingFeed ? (
-                            <div className="feed-loading">
-                                <div className="app-loading-spinner" />
-                            </div>
-                        ) : feedItems.length === 0 ? (
-                            <div className="feed-empty-state">
-                                <AlertCircle size={28} className="text-muted" />
-                                <p>No recent activity. Connect with friends to see updates here!</p>
-                            </div>
-                        ) : (
-                            <div className="feed-items-list">
-                                {feedItems.map((item, index) => {
-                                    if (item.type === 'design_published' && item.image) {
-                                        const imageUrl = item.image.startsWith('http') ? item.image : `${MEDIA_BASE}${item.image}`;
-                                        return (
-                                            <div key={index} className="feed-design-card glass-panel">
-                                                <div className="feed-item-header">
-                                                    <span className="feed-username">@{item.username}</span>
-                                                    <span className="feed-time">
-                                                        {new Date(item.timestamp).toLocaleDateString()}
-                                                    </span>
-                                                </div>
+                    <div className="spotlight-grid">
+                        {spotlightDesigns.map((item, index) => {
+                            const imageUrl = item.image.startsWith('http')
+                                ? item.image
+                                : `${MEDIA_BASE}${item.image}`;
 
-                                                <p className="feed-item-title" style={{ margin: '2px 0 8px 0' }}>
-                                                    {item.title}
-                                                </p>
-
-                                                {/* UI Design Image Preview */}
-                                                <Link to={getProjectLink(item)} className="feed-design-image-wrapper">
-                                                    <img
-                                                        src={imageUrl}
-                                                        alt="UI Design"
-                                                        className="feed-design-img"
-                                                    />
-                                                    {(item.ui_score !== null || item.ux_score !== null) && (
-                                                        <div className="feed-design-scores-badge">
-                                                            {item.ui_score !== null && <span>UI: {item.ui_score}/10</span>}
-                                                            {item.ux_score !== null && <span>UX: {item.ux_score}/10</span>}
-                                                        </div>
-                                                    )}
-                                                </Link>
-
-                                                {/* Like and Actions Bar */}
-                                                <div className="feed-design-actions">
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => handleToggleLike(item.design_id, e)}
-                                                        className={`feed-like-btn ${item.is_liked ? 'liked' : ''}`}
-                                                        title={item.is_liked ? 'Unlike design' : 'Like design'}
-                                                    >
-                                                        <Heart
-                                                            size={16}
-                                                            fill={item.is_liked ? '#ef4444' : 'none'}
-                                                            color={item.is_liked ? '#ef4444' : 'currentColor'}
-                                                        />
-                                                        <span>{item.like_count || 0}</span>
-                                                    </button>
-
-                                                    <Link to={getProjectLink(item)} className="feed-view-project-link">
-                                                        View Details →
-                                                    </Link>
-                                                </div>
+                            return (
+                                <div key={index} className="spotlight-card glass-panel">
+                                    <Link to={getProjectLink(item)} className="spotlight-image-wrap">
+                                        <img src={imageUrl} alt={item.title || 'Design Screen'} className="spotlight-img" />
+                                        {(item.ui_score !== null || item.ux_score !== null) && (
+                                            <div className="spotlight-scores-badge">
+                                                {item.ui_score !== null && (
+                                                    <span className="score-chip ui">UI {item.ui_score}</span>
+                                                )}
+                                                {item.ux_score !== null && (
+                                                    <span className="score-chip ux">UX {item.ux_score}</span>
+                                                )}
                                             </div>
-                                        );
-                                    }
+                                        )}
+                                    </Link>
 
-                                    return (
-                                        <Link to={getProjectLink(item)} key={index} className="feed-item-card">
-                                            <div className="feed-item-header">
-                                                {renderFeedIcon(item.type)}
-                                                <span className="feed-username">@{item.username}</span>
-                                                <span className="feed-time">
-                                                    {new Date(item.timestamp).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                            <p className="feed-item-title">{item.title}</p>
-                                            {item.details && <p className="feed-item-details">{item.details}</p>}
-                                        </Link>
-                                    );
-                                })}
-                            </div>
-                        )}
+                                    <div className="spotlight-meta">
+                                        <div className="spotlight-user-row">
+                                            <span className="spotlight-author">@{item.username}</span>
+                                            <button
+                                                className={`spotlight-like-btn ${item.is_liked ? 'liked' : ''}`}
+                                                onClick={(e) => handleToggleLike(item.design_id, e)}
+                                                title="Like design"
+                                            >
+                                                <Heart size={14} fill={item.is_liked ? 'currentColor' : 'none'} />
+                                                <span>{item.like_count || 0}</span>
+                                            </button>
+                                        </div>
+                                        <p className="spotlight-title-text">{item.title || 'Untitled Interface'}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
-            </div>
+                </section>
+            )}
 
-            {/* Modal Popup Component (Conditionally rendered only if isModalOpen is true) */}
+            {/* Create Project Modal */}
             {isModalOpen && (
-                // The dark overlay behind the modal. Clicking it closes the modal.
-                <div className="modal-overlay animate-fade-in" onClick={() => setIsModalOpen(false)}>
-                    {/* The actual modal box. e.stopPropagation() prevents clicks inside the white box from closing it */}
-                    <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-                        <h2>Create New Project</h2>
-                        {/* The form bound to our handleCreateProject function */}
-                        <form onSubmit={handleCreateProject}>
-                            <div className="form-group">
-                                <label>Project Title</label>
-                                {/* Input bound to the newTitle state */}
+                <div className="modal-backdrop animate-fade-in" onClick={() => !creatingProject && setIsModalOpen(false)}>
+                    <div className="modal-card glass-panel" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div className="modal-icon-badge">
+                                <Plus size={22} />
+                            </div>
+                            <div>
+                                <h3 className="modal-title">Create Design Project</h3>
+                                <p className="modal-subtitle">Organize audits, assets, and design feedback</p>
+                            </div>
+                            <button
+                                className="modal-close-btn"
+                                onClick={() => !creatingProject && setIsModalOpen(false)}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateProject} className="create-project-form">
+                            <div className="form-field-group">
+                                <label className="form-field-label">Project Title *</label>
                                 <input
                                     type="text"
-                                    className="glass-input"
                                     value={newTitle}
-                                    onChange={e => setNewTitle(e.target.value)}
-                                    placeholder="e.g. E-Commerce Redesign"
-                                    autoFocus // Automatically highlights this field when the modal opens
+                                    onChange={(e) => setNewTitle(e.target.value)}
+                                    placeholder="e.g. Fintech Mobile App Redesign"
+                                    required
+                                    autoFocus
+                                    className="form-field-input"
                                 />
                             </div>
-                            <div className="form-group">
-                                <label>Description (Optional)</label>
-                                {/* Textarea bound to the newDescription state */}
+
+                            <div className="form-field-group">
+                                <label className="form-field-label">Project Scope / Description</label>
                                 <textarea
-                                    className="glass-input"
                                     value={newDescription}
-                                    onChange={e => setNewDescription(e.target.value)}
-                                    rows="3"
+                                    onChange={(e) => setNewDescription(e.target.value)}
+                                    placeholder="Describe design goals, target audience, or usability focal points..."
+                                    rows={4}
+                                    className="form-field-textarea"
                                 />
                             </div>
-                            {/* Actions area with Cancel and Submit buttons */}
+
                             <div className="modal-actions">
-                                <button type="button" className="glass-button secondary" onClick={() => setIsModalOpen(false)}>
+                                <button
+                                    type="button"
+                                    className="btn-cancel"
+                                    onClick={() => setIsModalOpen(false)}
+                                    disabled={creatingProject}
+                                >
                                     Cancel
                                 </button>
-                                {/* Submit button is disabled if the title is empty (whitespace trimmed) */}
-                                <button type="submit" className="glass-button" disabled={!newTitle.trim()}>
-                                    Create
+                                <button
+                                    type="submit"
+                                    className="glass-button"
+                                    disabled={creatingProject || !newTitle.trim()}
+                                >
+                                    {creatingProject ? 'Creating...' : 'Create & Open Project'}
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Safe Delete Project Modal */}
+            {projectToDelete && (
+                <div className="modal-backdrop animate-fade-in" onClick={() => !deletingProject && setProjectToDelete(null)}>
+                    <div className="modal-card glass-panel" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div className="modal-warning-icon">
+                                <Trash2 size={22} />
+                            </div>
+                            <div>
+                                <h3 className="modal-title">Delete Project</h3>
+                                <p className="modal-subtitle">Are you sure you want to delete "{projectToDelete.title}"?</p>
+                            </div>
+                            <button
+                                className="modal-close-btn"
+                                onClick={() => !deletingProject && setProjectToDelete(null)}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="modal-body">
+                            <p className="modal-explanation">
+                                This will permanently remove this project, all associated screenshots, and AI audit reports. This action cannot be undone.
+                            </p>
+                            <div className="modal-actions">
+                                <button
+                                    type="button"
+                                    className="btn-cancel"
+                                    onClick={() => setProjectToDelete(null)}
+                                    disabled={deletingProject}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn-danger"
+                                    onClick={confirmDeleteProject}
+                                    disabled={deletingProject}
+                                >
+                                    {deletingProject ? 'Deleting...' : 'Delete Project'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -415,5 +596,4 @@ const Home = () => {
     );
 };
 
-// Export the Home component so it can be used in App.jsx routing
 export default Home;
