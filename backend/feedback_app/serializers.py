@@ -145,9 +145,8 @@ class ProjectSerializer(serializers.ModelSerializer):
         is_public = attrs.get('is_public')
         if is_public:
             if not self.instance:
-                raise serializers.ValidationError(
-                    {"is_public": "You cannot make this project public before submitting project designs or reports."}
-                )
+                # Projects must start private until designs or reports are processed
+                attrs['is_public'] = False
             else:
                 has_content = (
                     self.instance.hybrid_submissions.filter(status='done').exists() or

@@ -217,3 +217,8 @@ SIMPLE_JWT = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# AI Provider Configuration
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'groq')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')

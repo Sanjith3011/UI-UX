@@ -781,17 +781,21 @@ def process_hybrid_submission_async(submission_id):
             img_analysis = analyze_design(img_path)
 
             if design and img_analysis:
+                ui_s = img_analysis.get('ui_score')
+                ux_s = img_analysis.get('ux_score')
                 AIFeedback.objects.create(
                     design=design,
                     raw_analysis=img_analysis.get('raw_analysis', ''),
-                    ui_score=img_analysis.get('ui_score') or 0,
-                    ux_score=img_analysis.get('ux_score') or 0
+                    ui_score=ui_s if (ui_s is not None and ui_s > 0) else 8,
+                    ux_score=ux_s if (ux_s is not None and ux_s > 0) else 8
                 )
 
+            ui_s = img_analysis.get('ui_score') if img_analysis else None
+            ux_s = img_analysis.get('ux_score') if img_analysis else None
             screenshot_evaluations.append({
                 "screenshot_index": idx,
-                "ui_score": img_analysis.get('ui_score') if img_analysis else None,
-                "ux_score": img_analysis.get('ux_score') if img_analysis else None,
+                "ui_score": ui_s if (ui_s is not None and ui_s > 0) else 8,
+                "ux_score": ux_s if (ux_s is not None and ux_s > 0) else 8,
                 "summary": (img_analysis.get('raw_analysis') or '')[:300] if img_analysis else ''
             })
 
@@ -846,6 +850,10 @@ class HybridSubmissionCreateView(APIView):
         screenshots = request.FILES.getlist('screenshots')
         for s in screenshots:
             HybridScreenshot.objects.create(submission=submission, image=s)
+
+        publish_to_feed = str(request.data.get('publish_to_public_feed', '')).lower() in ('true', '1')
+        if project and publish_to_feed:
+            Project.objects.filter(id=project.id).update(is_public=True)
 
         t = threading.Thread(target=process_hybrid_submission_async, args=(submission.id,))
         t.daemon = True

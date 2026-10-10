@@ -143,21 +143,16 @@ const HybridUpload = () => {
                 const projRes = await api.post('projects/', {
                     title,
                     description: 'Generated via Hybrid AI Heuristic Evaluation Studio',
-                    is_public: publishToPublicFeed,
+                    is_public: false,
                 });
                 targetProjectId = projRes.data.id;
-            } else if (targetProjectId && targetProjectId !== '__STANDALONE__' && publishToPublicFeed) {
-                try {
-                    await api.patch(`projects/${targetProjectId}/visibility/`, { is_public: true });
-                } catch (e) {
-                    // Ignore if already public
-                }
             }
 
             const formData = new FormData();
             if (targetProjectId && targetProjectId !== '__STANDALONE__') {
                 formData.append('project', targetProjectId);
             }
+            formData.append('publish_to_public_feed', publishToPublicFeed ? 'true' : 'false');
             formData.append('report_file', reportFile);
             if (prompt.trim()) {
                 formData.append('prompt', prompt.trim());
