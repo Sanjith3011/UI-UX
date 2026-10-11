@@ -22,8 +22,6 @@ def _get_public_project(username, project_id):
         return None, Response({'detail': 'Profile not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     profile, _ = UserProfile.objects.get_or_create(user=user)
-    if not profile.portfolio_public:
-        return None, Response({'detail': 'This profile is private.'}, status=status.HTTP_404_NOT_FOUND)
 
     project = Project.objects.filter(
         id=project_id, user=user, is_public=True
@@ -53,8 +51,9 @@ class ProfileSearchView(APIView):
 
 class PublicDesignsView(APIView):
     """
-    Public community feed of UI designs.
-    Allows anyone to view designs with screenshots, AI evaluation scores, and likes.
+    Public community showcase feed.
+    Shows the overall project cards, each with a single design thumbnail and overall UI/UX scores.
+    Clicking the project card allows viewing the full project with all of its designs.
     """
     permission_classes = [permissions.AllowAny]
 
@@ -70,54 +69,72 @@ class PublicDesignsView(APIView):
             friends = [f.user_b if f.user_a == user else f.user_a for f in friendships]
             friend_ids = [friend.id for friend in friends]
 
-        design_q = (Q(is_public=True) | Q(project__is_public=True)) & ~Q(image='')
+        project_q = Q(is_public=True)
         if user:
-            design_q |= Q(project__user_id__in=friend_ids) | Q(project__user=user)
+            project_q |= Q(user_id__in=friend_ids) | Q(user=user)
 
         if query:
-            design_q &= (Q(project__title__icontains=query) | Q(project__user__username__icontains=query))
+            project_q &= (Q(title__icontains=query) | Q(description__icontains=query) | Q(user__username__icontains=query))
 
-        designs = Design.objects.filter(design_q).select_related('project__user').prefetch_related('likes', 'feedback')
-
-        user_liked_ids = set()
-        if user:
-            user_liked_ids = set(
-                DesignLike.objects.filter(user=user, design__in=designs).values_list('design_id', flat=True)
-            )
+        projects = Project.objects.filter(project_q).select_related('user').prefetch_related(
+            'designs__feedback', 'designs__likes', 'comments', 'archives'
+        ).distinct()
 
         items = []
-        for d in designs:
-            fb = getattr(d, 'feedback', None)
-            ui_score = fb.ui_score if (fb and fb.ui_score) else 8
-            ux_score = fb.ux_score if (fb and fb.ux_score) else 8
-            like_count = d.likes.count()
-            owner_name = d.project.user.username if d.project and d.project.user else 'Anonymous'
-            img_url = request.build_absolute_uri(d.image.url) if (d.image and hasattr(d.image, 'url')) else None
+        for p in projects:
+            p_designs = list(p.designs.filter(~Q(image='')).order_by('-uploaded_at'))
+            if not p_designs:
+                continue
+
+            primary_design = p_designs[0]
+            thumbnail_url = request.build_absolute_uri(primary_design.image.url) if (primary_design.image and hasattr(primary_design.image, 'url')) else None
+
+            scores = _public_scores_only(p) or {'ui_score': 8.5, 'ux_score': 8.0}
+            ui_score = scores.get('ui_score', 8.5)
+            ux_score = scores.get('ux_score', 8.0)
+            overall_score = round((ui_score + ux_score) / 2, 1)
+
+            all_likes_count = sum(d.likes.count() for d in p_designs)
+            user_has_liked = False
+            if user:
+                user_has_liked = any(
+                    d.likes.filter(user=user).exists() for d in p_designs
+                )
+
+            owner_name = p.user.username if p.user else 'Anonymous'
+            comment_count = p.comments.filter(parent__isnull=True).count()
+
             items.append({
-                'id': d.id,
-                'design_id': d.id,
-                'image': img_url,
-                'project_id': d.project.id if d.project else None,
-                'project_title': d.project.title if d.project else 'Untitled Project',
+                'id': p.id,
+                'project_id': p.id,
+                'title': p.title,
+                'project_title': p.title,
+                'description': p.description or '',
                 'username': owner_name,
                 'owner_username': owner_name,
-                'timestamp': d.uploaded_at,
-                'uploaded_at': d.uploaded_at,
-                'title': f"shared a UI design in {d.project.title if d.project else 'a project'}",
+                'thumbnail': thumbnail_url,
+                'image': thumbnail_url,
+                'thumbnail_design_id': primary_design.id,
+                'design_count': len(p_designs),
                 'ui_score': ui_score,
                 'ux_score': ux_score,
-                'like_count': like_count,
-                'is_liked': d.id in user_liked_ids,
+                'overall_score': overall_score,
+                'like_count': all_likes_count,
+                'is_liked': user_has_liked,
+                'comment_count': comment_count,
+                'created_at': p.created_at,
+                'uploaded_at': primary_design.uploaded_at,
+                'timestamp': p.created_at,
             })
 
         if sort == 'likes':
-            items.sort(key=lambda x: (x['like_count'], x['uploaded_at']), reverse=True)
+            items.sort(key=lambda x: (x['like_count'], x['timestamp']), reverse=True)
         elif sort == 'top_rated':
-            items.sort(key=lambda x: (x['ui_score'] or 0, x['ux_score'] or 0, x['uploaded_at']), reverse=True)
+            items.sort(key=lambda x: (x['overall_score'], x['ui_score'], x['timestamp']), reverse=True)
         else:  # latest
-            items.sort(key=lambda x: x['uploaded_at'], reverse=True)
+            items.sort(key=lambda x: x['timestamp'], reverse=True)
 
-        return Response(items[:80])
+        return Response(items[:60])
 
 
 

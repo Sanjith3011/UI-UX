@@ -15,9 +15,34 @@ class ProjectArchiveSerializer(serializers.ModelSerializer):
 
 # Import the built-in Django User model
 from django.contrib.auth.models import User
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .security import (
+    validate_username_credentials,
+    validate_email_credentials,
+    validate_password_strength,
+)
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Enriched JWT claims providing username, email, and user_id in login token response."""
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['username'] = user.username
+        token['email'] = user.email or ''
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['username'] = self.user.username
+        data['email'] = self.user.email or ''
+        data['user_id'] = self.user.id
+        return data
+
 
 # Define a serializer for the User model, used for registration and returning user details
 class UserSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+
     class Meta:
         # Specify the model to serialize
         model = User
@@ -33,23 +58,29 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def validate_username(self, value):
-        username = value.strip()
-        if not username:
-            raise serializers.ValidationError('Username cannot be empty.')
-        if User.objects.filter(username=username).exists():
-            raise serializers.ValidationError(
-                'This username is already taken. Please choose a different username.'
-            )
-        return username
+        return validate_username_credentials(value)
+
+    def validate_email(self, value):
+        return validate_email_credentials(value)
+
+    def validate(self, data):
+        validate_password_strength(
+            data.get('password'),
+            username=data.get('username'),
+            email=data.get('email')
+        )
+        return data
 
     # Override the default create method to handle secure password hashing
     def create(self, validated_data):
-        # Use create_user instead of create so Django automatically hashes the password
+        # Use create_user so Django automatically hashes the password with PBKDF2-SHA256
         user = User.objects.create_user(
             username=validated_data['username'],
-            email=validated_data.get('email', ''), # Fallback to empty string if email is missing
+            email=validated_data['email'],
             password=validated_data['password']
         )
+        from .models import UserProfile
+        UserProfile.objects.get_or_create(user=user)
         return user
 
 # Define a serializer for the AIFeedback model

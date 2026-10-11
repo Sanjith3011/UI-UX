@@ -7,6 +7,7 @@ from .views import (
     ProjectViewSet, DesignViewSet, AIFeedbackViewSet, RegisterView,
     ProjectReportPDFView, ArchiveUploadView, DeleteProjectFeedbackView,
     PrivacyPolicyView, DeleteAllUserDataView, CancelArchiveUploadView, HybridSubmissionCreateView,
+    TokenGenerateView, TokenVerifyView, DataCryptoView,
 )
 from .portfolio_views import (
     ProfileSearchView, PublicProfileView, PublicProjectView,
@@ -55,6 +56,11 @@ urlpatterns = [
     path('public-designs/', PublicDesignsView.as_view(), name='public-designs'),
     path('profile/me/', MyProfileView.as_view(), name='my-profile'),
     
+    # Cryptographic Security, Tokens & Encryption Routes
+    path('auth/token/generate/', TokenGenerateView.as_view(), name='token-generate'),
+    path('auth/token/verify/', TokenVerifyView.as_view(), name='token-verify'),
+    path('auth/crypto/', DataCryptoView.as_view(), name='data-crypto'),
+
     # Social Platform Routes
     path('feed/', FeedView.as_view(), name='activity-feed'),
     path('friends/', FriendshipViewSet.as_view({'get': 'list'}), name='friends-list'),

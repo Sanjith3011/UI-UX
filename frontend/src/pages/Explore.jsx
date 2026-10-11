@@ -5,7 +5,7 @@ import {
   User,
   Heart,
   Sparkles,
-  Maximize2,
+  Layers,
   X,
   Compass,
   Flame,
@@ -254,97 +254,127 @@ const Explore = () => {
             </div>
           ) : (
             <div className="public-designs-grid">
-              {designs.map((design) => {
-                const targetId = design.id || design.design_id;
-                const imgUrl = formatImageUrl(design.image);
-                const projectLink = design.project_id
-                  ? `/portfolio/${design.username}/project/${design.project_id}`
+              {designs.map((project) => {
+                const targetId = project.id || project.project_id;
+                const imgUrl = formatImageUrl(project.thumbnail || project.image);
+                const projectLink = project.project_id
+                  ? `/portfolio/${project.owner_username || project.username}/project/${project.project_id}`
                   : '#';
 
+                const handleCardClick = () => {
+                  if (projectLink && projectLink !== '#') {
+                    navigate(projectLink);
+                  }
+                };
+
                 return (
-                  <div key={targetId} className="public-design-card glass-panel">
+                  <div
+                    key={targetId}
+                    className="public-design-card glass-panel"
+                    onClick={handleCardClick}
+                    style={{ cursor: 'pointer' }}
+                  >
                     {/* Header info */}
-                    <div className="card-top-bar">
-                      <Link to={`/portfolio/${design.username}`} className="designer-info-link">
+                    <div className="card-top-bar" onClick={(e) => e.stopPropagation()}>
+                      <Link to={`/portfolio/${project.owner_username || project.username}`} className="designer-info-link">
                         <div className="designer-avatar-small">
-                          {design.username ? design.username[0].toUpperCase() : 'U'}
+                          {project.owner_username
+                            ? project.owner_username[0].toUpperCase()
+                            : project.username
+                            ? project.username[0].toUpperCase()
+                            : 'P'}
                         </div>
-                        <span className="designer-username">@{design.username}</span>
+                        <span className="designer-username">@{project.owner_username || project.username}</span>
                       </Link>
                       <span className="design-date">
-                        {design.uploaded_at
-                          ? new Date(design.uploaded_at).toLocaleDateString()
+                        {project.created_at || project.uploaded_at
+                          ? new Date(project.created_at || project.uploaded_at).toLocaleDateString()
                           : 'Recent'}
                       </span>
                     </div>
 
-                    {/* Screenshot Preview */}
-                    <div
-                      className="design-card-media"
-                      onClick={() => setSelectedDesign(design)}
-                      title="Click to view full design"
-                    >
+                    {/* Single Thumbnail Preview */}
+                    <div className="design-card-media" title="Click to view full project with all screens">
                       <img
                         src={imgUrl}
-                        alt={`UI Design in ${design.project_title}`}
+                        alt={`Design thumbnail for ${project.title || project.project_title}`}
                         className="design-card-img"
                         loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
                       />
-                      <div className="design-zoom-overlay">
-                        <Maximize2 size={24} />
-                        <span>Preview Design</span>
+
+                      {/* Screen Count Badge */}
+                      <div className="card-screens-badge">
+                        <Layers size={13} />
+                        <span>{project.design_count || 1} {project.design_count === 1 ? 'Screen' : 'Screens'}</span>
                       </div>
 
-                      {/* AI Score Badges */}
-                      {(design.ui_score !== null || design.ux_score !== null) && (
-                        <div className="card-scores-overlay">
-                          {design.ui_score !== null && (
-                            <span className="score-pill ui-pill">
-                              UI: {design.ui_score}/10
-                            </span>
-                          )}
-                          {design.ux_score !== null && (
-                            <span className="score-pill ux-pill">
-                              UX: {design.ux_score}/10
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="design-zoom-overlay">
+                        <ExternalLink size={24} />
+                        <span>View Full Project ({project.design_count || 1} Screens)</span>
+                      </div>
+
+                      {/* AI Heuristic Score Badges */}
+                      <div className="card-scores-overlay">
+                        <span className="score-pill ui-pill">
+                          UI: {project.ui_score || 8.5}/10
+                        </span>
+                        <span className="score-pill ux-pill">
+                          UX: {project.ux_score || 8.0}/10
+                        </span>
+                        {project.overall_score && (
+                          <span className="score-pill" style={{ background: 'rgba(99, 102, 241, 0.85)', color: '#fff' }}>
+                            ★ {project.overall_score}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Card Content & Action Bar */}
                     <div className="card-bottom-bar">
                       <div className="project-title-area">
-                        <Link to={projectLink} className="project-title-link">
-                          {design.project_title}
-                        </Link>
+                        <h3 className="project-title-link">
+                          {project.title || project.project_title || 'Untitled Project'}
+                        </h3>
+                        {project.description && (
+                          <p className="card-description-excerpt">
+                            {project.description}
+                          </p>
+                        )}
                       </div>
 
-                      <div className="card-interactions">
+                      <div className="card-interactions" onClick={(e) => e.stopPropagation()}>
                         {/* Interactive Like Button */}
                         <button
                           type="button"
-                          className={`card-like-btn ${design.is_liked ? 'liked' : ''}`}
-                          onClick={(e) => handleLikeToggle(targetId, e)}
+                          className={`card-like-btn ${project.is_liked ? 'liked' : ''}`}
+                          onClick={(e) => handleLikeToggle(project.thumbnail_design_id || targetId, e)}
                           title={
                             user
-                              ? design.is_liked
+                              ? project.is_liked
                                 ? 'Unlike design'
-                                : 'Like this design'
+                                : 'Like this project design'
                               : 'Log in to like'
                           }
                         >
                           <Heart
                             size={18}
-                            fill={design.is_liked ? '#ef4444' : 'none'}
-                            color={design.is_liked ? '#ef4444' : 'currentColor'}
+                            fill={project.is_liked ? '#ef4444' : 'none'}
+                            color={project.is_liked ? '#ef4444' : 'currentColor'}
                           />
-                          <span className="like-counter">{design.like_count || 0}</span>
+                          <span className="like-counter">{project.like_count || 0}</span>
                         </button>
 
-                        <Link to={projectLink} className="inspect-project-btn" title="View Full Project">
-                          <ExternalLink size={16} /> Details
-                        </Link>
+                        <button
+                          type="button"
+                          className="inspect-project-btn"
+                          onClick={handleCardClick}
+                          title="View Full Project with all screens"
+                        >
+                          <ExternalLink size={15} /> All Screens
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -402,6 +402,112 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = UserSerializer
 
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
+from .security import (
+    generate_secure_token,
+    generate_signed_token,
+    verify_signed_token,
+    encrypt_data,
+    decrypt_data,
+)
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Issues JWT tokens with enriched claims (username, email, user_id)."""
+    serializer_class = CustomTokenObtainPairSerializer
+
+
+class TokenGenerateView(APIView):
+    """
+    Cryptographic Token Generator.
+    Generates cryptographically signed access tokens or high-entropy API keys.
+    Requires authentication.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        token_type = request.data.get('type', 'signed')
+        purpose = request.data.get('purpose', 'api_access')
+        expires_hours = int(request.data.get('expires_hours', 24))
+
+        if token_type == 'random':
+            token_val = generate_secure_token(32)
+            return Response({
+                'token': token_val,
+                'type': 'high_entropy_random_bearer',
+                'user': request.user.username,
+                'created_at': request.user.date_joined,
+            })
+
+        payload = {
+            'user_id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+            'purpose': purpose,
+        }
+        signed_token = generate_signed_token(payload)
+        return Response({
+            'token': signed_token,
+            'type': 'cryptographically_signed_hmac',
+            'user': request.user.username,
+            'purpose': purpose,
+            'expires_hours': expires_hours,
+        })
+
+
+class TokenVerifyView(APIView):
+    """
+    Verifies cryptographic signatures and expiration of generated tokens.
+    Publicly verifiable.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token_str = request.data.get('token')
+        if not token_str:
+            return Response(
+                {'valid': False, 'detail': 'Token parameter is compulsory.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            payload = verify_signed_token(token_str)
+            return Response({
+                'valid': True,
+                'payload': payload,
+            })
+        except ValueError as exc:
+            return Response(
+                {'valid': False, 'detail': str(exc)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class DataCryptoView(APIView):
+    """
+    Symmetric AES/Fernet encryption & decryption utility for authenticated users.
+    Allows encrypting sensitive project notes or decrypting authorized payloads.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        action = request.data.get('action', 'encrypt')
+        data_text = request.data.get('data', '')
+
+        if not data_text:
+            return Response({'detail': 'Data field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if action == 'encrypt':
+            ciphertext = encrypt_data(data_text)
+            return Response({'result': ciphertext, 'action': 'encrypted'})
+        elif action == 'decrypt':
+            plaintext = decrypt_data(data_text)
+            if not plaintext and data_text:
+                return Response({'detail': 'Invalid ciphertext or decryption failed.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'result': plaintext, 'action': 'decrypted'})
+        else:
+            return Response({'detail': 'Invalid action. Choose encrypt or decrypt.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
     permission_classes = [permissions.IsAuthenticated]

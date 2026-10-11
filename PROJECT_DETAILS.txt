@@ -316,19 +316,51 @@ Key Component Modules:
 ================================================================================
 8. SECURITY, PRIVACY & COMPLIANCE ARCHITECTURE
 ================================================================================
-1. Stateless Authentication:
-   - Protected endpoints require Bearer JWT access tokens with 60-minute expiry.
-   - Refresh tokens enable transparent session re-authentication.
-2. Ownership Isolation:
+1. Compulsory Email & Strict Credential Validators:
+   - Mandatory Email: Email registration is strictly compulsory, validated against
+     RFC compliant email syntax regex, and enforced for case-insensitive uniqueness.
+   - Username Policy: 3 to 30 characters, alphanumeric, underscores, hyphens, and
+     periods. Disallows reserved system identifiers (admin, root, api, auth, token, etc.).
+   - Password Security Policy: Minimum 8 characters with required combinations of
+     uppercase (A-Z), lowercase (a-z), numeric digits (0-9), and special symbols.
+     Rejects passwords similar to username or email local-parts.
+   - Real-time Frontend Indicators: Interactive strength meter and 5-point checklist
+     verifying length, uppercase, lowercase, numbers, and symbols before submission.
+
+2. Cryptographic Password Hashing:
+   - Configured with Django's hardened PBKDF2PasswordHasher (720,000 SHA-256 iterations)
+     alongside Argon2 and BCrypt support. Passwords are never stored in plaintext.
+
+3. Cryptographic Token Generators & Verifiers:
+   - Enriched JWT Authentication: CustomTokenObtainPairSerializer delivers enriched
+     claims (user_id, username, email) directly within token responses.
+   - Signed HMAC-SHA256 Tokens: `generate_signed_token` creates tamper-proof,
+     timestamped tokens with configurable expiration (via TimestampSigner).
+   - High-Entropy Bearer Tokens: `secrets.token_urlsafe(32)` generation for secure
+     programmatic API keys and session identifiers.
+   - Dedicated Endpoints:
+     * POST /api/auth/token/generate/ (Authenticated token generation)
+     * POST /api/auth/token/verify/ (Public token signature and expiry verification)
+
+4. Symmetric Data Encryption (Fernet / AES-128-CBC + HMAC-SHA256):
+   - Cryptographic module derives a consistent 32-byte key from Django's SECRET_KEY
+     using PBKDF2HMAC (SHA-256, 100,000 iterations).
+   - Enables encryption (`encrypt_data`) and authenticated decryption (`decrypt_data`)
+     for sensitive project notes, integration secrets, and payload security.
+   - Accessible via POST /api/auth/crypto/ for authorized client operations.
+
+5. Public Showcase Feed Architecture:
+   - Feed cards strictly represent distinct Projects rather than scattered individual screenshots.
+   - Each card displays a single design screenshot as the primary thumbnail alongside
+     aggregated UI and UX heuristic scores and screen count badges.
+   - Direct Navigation: Clicking the project card takes the user directly to the
+     full project portfolio view (/portfolio/:username/project/:id), where all screens,
+     individual AI feedback breakdowns, and discussion threads are accessible.
+
+6. Ownership Isolation & Safe Deletion:
    - All ProjectViewSet and DesignViewSet queries filter strictly by `request.user`.
    - Private projects cannot be retrieved or commented upon by other users.
-3. Safe Data Cleanup (Right to Be Forgotten):
-   - Rather than risky instant buttons, the platform implements a 2-step confirmation 
-     modal requiring explicit confirmation ("DELETE") before wiping all uploaded 
-     assets, media, and generated feedback.
-4. Input Validation & MIME Restrictions:
-   - Strict whitelisting of document formats (.pdf, .docx, .txt) and image formats.
-   - File size limits prevent denial-of-service via large binary uploads.
+   - 2-step confirmation modal requiring explicit typing ("DELETE") before wiping assets.
 
 ================================================================================
 9. DEPLOYMENT & INFRASTRUCTURE SPECIFICATION
