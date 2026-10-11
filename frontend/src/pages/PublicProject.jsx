@@ -8,6 +8,7 @@ import {
   postPublicComment,
   toggleDesignLike,
   MEDIA_BASE,
+  getMediaUrl,
 } from '../api';
 import './PublicProject.css';
 
@@ -135,7 +136,13 @@ const PublicProject = () => {
         <div className="public-designs-grid">
           {project.designs.map((design) => (
             <div key={design.id} className="public-design-card glass-panel">
-              <img src={`${MEDIA_BASE}${design.image}`} alt="Design" />
+              <img
+                src={getMediaUrl(design.image)}
+                alt="UI Design Screenshot"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
               <div className="public-design-meta">
                 <div className="score-row">
                   <span className="score-pill ui">UI {design.ui_score}/10</span>

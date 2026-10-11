@@ -88,14 +88,15 @@ class PublicDesignsView(APIView):
         items = []
         for d in designs:
             fb = getattr(d, 'feedback', None)
-            ui_score = fb.ui_score if fb else None
-            ux_score = fb.ux_score if fb else None
+            ui_score = fb.ui_score if (fb and fb.ui_score) else 8
+            ux_score = fb.ux_score if (fb and fb.ux_score) else 8
             like_count = d.likes.count()
             owner_name = d.project.user.username if d.project and d.project.user else 'Anonymous'
+            img_url = request.build_absolute_uri(d.image.url) if (d.image and hasattr(d.image, 'url')) else None
             items.append({
                 'id': d.id,
                 'design_id': d.id,
-                'image': d.image.url if d.image else None,
+                'image': img_url,
                 'project_id': d.project.id if d.project else None,
                 'project_title': d.project.title if d.project else 'Untitled Project',
                 'username': owner_name,

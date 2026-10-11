@@ -21,7 +21,7 @@ import {
     ExternalLink,
     X
 } from 'lucide-react';
-import api, { fetchFeed, toggleDesignLike, MEDIA_BASE } from '../api';
+import api, { fetchFeed, toggleDesignLike, MEDIA_BASE, getMediaUrl } from '../api';
 import AuthContext from '../context/AuthContext';
 import './Home.css';
 
@@ -183,11 +183,11 @@ const Home = () => {
         return projects.filter(p => p.is_public).length;
     }, [projects]);
 
-    // Showcase spotlight items (top 3 designs with images)
+    // Showcase spotlight items (top designs with images)
     const spotlightDesigns = useMemo(() => {
         return feedItems
-            .filter(item => item.type === 'design_published' && item.image)
-            .slice(0, 3);
+            .filter(item => Boolean(item.image))
+            .slice(0, 4);
     }, [feedItems]);
 
     return (
@@ -438,9 +438,7 @@ const Home = () => {
 
                     <div className="spotlight-grid">
                         {spotlightDesigns.map((item, index) => {
-                            const imageUrl = item.image.startsWith('http')
-                                ? item.image
-                                : `${MEDIA_BASE}${item.image}`;
+                            const imageUrl = getMediaUrl(item.image);
 
                             return (
                                 <div key={index} className="spotlight-card glass-panel">

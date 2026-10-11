@@ -3,6 +3,19 @@ import axios from 'axios';
 const RAW_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 export const MEDIA_BASE = RAW_BACKEND_URL.replace(/\/+$/, '');
 
+export const getMediaUrl = (imgPath) => {
+    if (!imgPath || typeof imgPath !== 'string') return '';
+    if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+        if (MEDIA_BASE && !MEDIA_BASE.includes('localhost') && imgPath.includes('localhost:8000')) {
+            return imgPath.replace(/http:\/\/localhost:8000/, MEDIA_BASE);
+        }
+        return imgPath;
+    }
+    const cleanBase = MEDIA_BASE.replace(/\/+$/, '');
+    const cleanPath = imgPath.startsWith('/') ? imgPath : `/${imgPath}`;
+    return `${cleanBase}${cleanPath}`;
+};
+
 const api = axios.create({
     baseURL: `${MEDIA_BASE}/api/`,
 });

@@ -19,6 +19,7 @@ import api, {
     updateProjectVisibility,
     updateDesignVisibility,
     MEDIA_BASE,
+    getMediaUrl,
 } from '../api';
 // Import component-specific CSS styles
 import './ProjectDetail.css';
@@ -40,6 +41,7 @@ const ProjectDetail = () => {
     const [submittingHybrid, setSubmittingHybrid] = useState(false);
     const [showComments, setShowComments] = useState(false);
     const [showHybridForm, setShowHybridForm] = useState(false);
+    const [publishToFeed, setPublishToFeed] = useState(true);
 
     // Hybrid upload form states
     const [reportFile, setReportFile] = useState(null);
@@ -111,6 +113,7 @@ const ProjectDetail = () => {
 
         const formData = new FormData();
         formData.append('project', id);
+        formData.append('publish_to_public_feed', publishToFeed ? 'true' : 'false');
         formData.append('report_file', reportFile);
         if (promptText.trim()) {
             formData.append('prompt', promptText.trim());
@@ -552,14 +555,24 @@ const ProjectDetail = () => {
                                     </button>
                                 </div>
 
-                                {/* Submit button */}
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px', marginTop: '12px' }}>
-                                    {hybridStatus && <span style={{ color: 'var(--accent)', fontSize: '0.9rem' }}>{hybridStatus}</span>}
-                                    <button
-                                        type="submit"
-                                        disabled={submittingHybrid || !reportFile}
-                                        className="glass-button"
-                                        style={{
+                                {/* Submit button & Public feed toggle */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem', color: '#cbd5e1' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={publishToFeed}
+                                            onChange={(e) => setPublishToFeed(e.target.checked)}
+                                            style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                                        />
+                                        <span>Publish evaluated screens to Community Showcase Feed</span>
+                                    </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        {hybridStatus && <span style={{ color: 'var(--accent)', fontSize: '0.9rem' }}>{hybridStatus}</span>}
+                                        <button
+                                            type="submit"
+                                            disabled={submittingHybrid || !reportFile}
+                                            className="glass-button"
+                                            style={{
                                             background: 'linear-gradient(135deg, #6366f1, #a855f7)',
                                             color: '#fff',
                                             fontWeight: 600,
@@ -586,6 +599,7 @@ const ProjectDetail = () => {
                                             </>
                                         )}
                                     </button>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -630,7 +644,21 @@ const ProjectDetail = () => {
                                 {project.designs.map((design) => (
                                     <div key={design.id} className="design-card glass-panel">
                                         <div className="design-image-container">
-                                            <img src={`${MEDIA_BASE}${design.image}`} alt="Design" className="design-image" />
+                                            <img
+                                                src={getMediaUrl(design.image)}
+                                                alt="UI Design Screenshot"
+                                                className="design-image"
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                    if (e.currentTarget.nextElementSibling) {
+                                                        e.currentTarget.nextElementSibling.style.display = 'flex';
+                                                    }
+                                                }}
+                                            />
+                                            <div className="design-img-fallback-box" style={{ display: 'none', padding: '40px 20px', textAlign: 'center', flexDirection: 'column', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                                                <ImageIcon size={32} />
+                                                <span style={{ fontSize: '0.85rem' }}>Design Screen Preview</span>
+                                            </div>
                                         </div>
 
                                         <div className="design-feedback">

@@ -2,14 +2,12 @@
 import { useState } from 'react';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import ExpandableFeedback from './ExpandableFeedback';
-import { MEDIA_BASE } from '../api';
+import { MEDIA_BASE, getMediaUrl } from '../api';
 import './DesignCard.css';
 
 const DesignCard = ({ design, onDelete }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const imageUrl = design.image?.startsWith('http')
-    ? design.image
-    : `${MEDIA_BASE}${design.image}`;
+  const imageUrl = getMediaUrl(design.image);
 
   return (
     <div className="design-card glass-panel">

@@ -15,7 +15,7 @@ import {
   LogIn,
 } from 'lucide-react';
 import AuthContext from '../context/AuthContext';
-import { searchProfiles, fetchPublicDesigns, toggleDesignLike, MEDIA_BASE } from '../api';
+import { searchProfiles, fetchPublicDesigns, toggleDesignLike, MEDIA_BASE, getMediaUrl } from '../api';
 import './Explore.css';
 
 const Explore = () => {
@@ -141,9 +141,9 @@ const Explore = () => {
   };
 
   const formatImageUrl = (imgPath) => {
-    if (!imgPath) return '';
-    return imgPath.startsWith('http') ? imgPath : `${MEDIA_BASE}${imgPath}`;
+    return getMediaUrl(imgPath);
   };
+
 
   return (
     <div className="explore-page animate-fade-in">

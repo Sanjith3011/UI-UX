@@ -767,15 +767,25 @@ def process_hybrid_submission_async(submission_id):
                     pass
         screenshots = list(submission.screenshots.all())
 
+        project = submission.project
+        if not project:
+            from datetime import datetime
+            title_name = f"Design Audit {datetime.now().strftime('%b %d, %Y')}"
+            project = Project.objects.create(
+                user=submission.user,
+                title=title_name,
+                description="Heuristic UI/UX design audit."
+            )
+            submission.project = project
+            submission.save(update_fields=['project'])
+
         screenshot_evaluations = []
         for idx, shot in enumerate(screenshots, start=1):
-            design = None
-            if submission.project:
-                design = Design.objects.create(
-                    project=submission.project,
-                    image=shot.image,
-                    is_public=submission.project.is_public
-                )
+            design = Design.objects.create(
+                project=project,
+                image=shot.image,
+                is_public=project.is_public
+            )
 
             img_path = shot.image.path
             img_analysis = analyze_design(img_path)
@@ -839,6 +849,21 @@ class HybridSubmissionCreateView(APIView):
         if not report_file:
             return Response({'detail': 'A report file (.pdf, .docx, .txt) is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        publish_to_feed = str(request.data.get('publish_to_public_feed', '')).lower() in ('true', '1')
+
+        if not project:
+            from datetime import datetime
+            title_name = f"Design Audit {datetime.now().strftime('%b %d, %Y')}"
+            project = Project.objects.create(
+                user=request.user,
+                title=title_name,
+                description="Heuristic UI/UX design audit.",
+                is_public=publish_to_feed
+            )
+        elif publish_to_feed:
+            Project.objects.filter(id=project.id).update(is_public=True)
+            project.is_public = True
+
         submission = HybridSubmission.objects.create(
             user=request.user,
             project=project,
@@ -850,10 +875,6 @@ class HybridSubmissionCreateView(APIView):
         screenshots = request.FILES.getlist('screenshots')
         for s in screenshots:
             HybridScreenshot.objects.create(submission=submission, image=s)
-
-        publish_to_feed = str(request.data.get('publish_to_public_feed', '')).lower() in ('true', '1')
-        if project and publish_to_feed:
-            Project.objects.filter(id=project.id).update(is_public=True)
 
         t = threading.Thread(target=process_hybrid_submission_async, args=(submission.id,))
         t.daemon = True
