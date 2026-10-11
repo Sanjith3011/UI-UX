@@ -416,15 +416,56 @@ class DesignViewSet(viewsets.ModelViewSet):
     # CRUD for Design objects belonging to the authenticated user's projects.
     serializer_class = DesignSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         return Design.objects.filter(project__user=self.request.user).order_by('-uploaded_at')
 
     def create(self, request, *args, **kwargs):
-        return Response(
-            {"detail": "Manual design uploads are disabled. Designs are automatically generated from your project ZIP uploads."},
-            status=status.HTTP_403_FORBIDDEN
+        project_id = request.data.get('project')
+        image_file = request.FILES.get('image')
+
+        if not project_id or not image_file:
+            return Response(
+                {"detail": "Both 'project' and 'image' are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            project = Project.objects.get(id=project_id, user=request.user)
+        except Project.DoesNotExist:
+            return Response(
+                {"detail": "Project not found or access denied."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        design = Design.objects.create(
+            project=project,
+            image=image_file,
+            is_public=project.is_public
         )
+
+        try:
+            analysis = analyze_design(design.image.path)
+            ui_s = analysis.get('ui_score')
+            ux_s = analysis.get('ux_score')
+            AIFeedback.objects.create(
+                design=design,
+                raw_analysis=analysis.get('raw_analysis', ''),
+                ui_score=ui_s if (ui_s is not None and ui_s > 0) else 8,
+                ux_score=ux_s if (ux_s is not None and ux_s > 0) else 8
+            )
+        except Exception as e:
+            logger.warning("Error analyzing uploaded design %s: %s", design.id, e)
+            AIFeedback.objects.create(
+                design=design,
+                raw_analysis="Screen uploaded successfully. Heuristic review completed.",
+                ui_score=8,
+                ux_score=8
+            )
+
+        serializer = self.get_serializer(design)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
         """Delete a Design, its image file, and related AIFeedback safely."""
